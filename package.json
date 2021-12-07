@@ -1,0 +1,19 @@
+{
+  "name": "fhir-fetcher",
+  "packageManager": "yarn@3.1.1",
+  "description": "Automatically fetches FHIR resource json descriptions, parses them, converts them to json objects",
+  "private": true,
+  "module": "src/index.js",
+  "main": "src/index.js",
+  "author": "Matt Jewett",
+  "dependencies": {
+    "axios": "^0.24.0",
+    "node-html-parser": "^5.1.0"
+  },
+  "scripts": {
+    "start": "node ."
+  },
+  "files": [
+    "src"
+  ]
+}
