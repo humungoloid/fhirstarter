@@ -2,18 +2,92 @@ const FhirJsonFetcher = require('./fhirJsonFetcher');
 const { processResourceJson } = require('./fhirResourceSchemaGenerator');
 const fs = require('fs').promises;
 const path = require('path');
-const prettyjson = require('prettyjson');
-const outputDir = path.resolve(__dirname, '../output');
 
-const MAX_DEPTH_FOR_OBJECT_PROCESSING = 0;
 const REMOVE_UNDERSCORE_REGEX = /__(?<value>[^_]*)__/;
 const AUTO_GENERATED = '/* This file was generated automagically by Matt */';
 
+const BASE_DIR = '../output';
+const RESOURCES_DIR = 'resource';
+const UTILS_DIR = 'utils';
+const DATATYPES_DIR = 'datatypes';
+
+const CLEAR_DIRECTORIES = true;
+
+const DO_NOT_EXTEND_DOMAINRESOURCE = ['Bundle', 'Parameters', 'Binary'];
+const ASTERISK =
+	'**********************************************************************************************';
+const MAX_LINE_LENGTH = ASTERISK.length - 10;
+
+var comments = '';
+var globalJson;
+const needToCheck = [];
+
 const failures = [];
 
-var verbose = true;
+var VERBOSE = true;
 
-const buildIndex = async (resources) => {
+const callback = (error) => {
+	if (error) {
+		throw error;
+	}
+};
+
+/*************** MAIN ***************/
+const buildFiles = async (
+	resources,
+	dataTypePages,
+	quantityTypes,
+	useVerbose = true
+) => {
+	VERBOSE = useVerbose;
+	await makeDirs();
+	console.log('Writing files...');
+	try {
+		dataTypePages &&
+			dataTypePages.length > 0 &&
+			buildDataTypeBuilderFile(dataTypePages, quantityTypes);
+		dataTypePages &&
+			dataTypePages.length > 0 &&
+			buildDataTypeFile(dataTypePages, quantityTypes);
+		resources && resources.length > 0 && buildResourceIndex(resources);
+		if (resources && resources.length > 0) {
+			for (let resource of resources) {
+				buildResourceFile(resource);
+			}
+		}
+	} finally {
+		console.log('Finished writing files.');
+		let failuresString =
+			failures.length === 0 ? '' : ` - ${failures.join(', ')}`;
+		let color = failures.length > 0 ? '\x1b[41m' : '\x1b[32m';
+		console.log(
+			`${color}Failures: (${failures.length})${failuresString}\x1b[0m`
+		);
+	}
+};
+/************* END MAIN *************/
+/********** INDEX BUILDERS **********/
+const buildDataTypeIndex = async (filename) => {
+	let file = path.resolve(__dirname, BASE_DIR, DATATYPES_DIR, `index.js`);
+	let writeToFile = `
+${AUTO_GENERATED}
+import getSchema from './${filename}';
+
+export * from './${filename}';
+export default getSchema;
+`;
+	try {
+		await fs.writeFile(file, writeToFile, { flag: 'w' }, callback);
+	} catch (error) {
+		VERBOSE &&
+			console.log(
+				`Failed to write file ${filename}.js - ${error.message}`
+			);
+		failures.push(filename);
+	}
+};
+
+const buildResourceIndex = async (resources) => {
 	if (resources.length === 0) {
 		return;
 	}
@@ -33,33 +107,217 @@ ${AUTO_GENERATED}
 		}
 	}
 
+	let mapping = (elem) => `${elem}Resource`;
+
 	try {
 		let exportStatement = `export { ${resourceList
 			.split(',')
-			.map((elem) => `${elem}Resource`)} };`;
+			.map(mapping)} };`;
 		let writeToFile = `${importAll}${exportStatement}`;
-		let file = `${outputDir}/${filename}.js`;
-		verbose && console.log(`File: ${file}`);
-		await fs.writeFile(file, writeToFile, callback);
-		verbose && console.log(`Successfully wrote file ${filename}.js`);
+		let file = path.resolve(__dirname, BASE_DIR, RESOURCES_DIR, `index.js`);
+		VERBOSE && console.log(`File: ${file}`);
+		await fs.writeFile(file, writeToFile, { flag: 'w' }, callback);
+		VERBOSE && console.log(`Successfully wrote file ${filename}.js`);
 	} catch {
-		verbose && console.log(`Failed to write file ${filename}.js`);
+		VERBOSE && console.log(`Failed to write file ${filename}.js`);
 		failures.push(filename);
 	}
 };
 
-const callback = (error) => {
-	if (error) {
-		throw error;
+const buildUtilsIndex = async (functionNames, importFrom) => {
+	let importStr = `
+import FhirDataTypeBuilder, {
+	${functionNames.join(', ')}
+} from './${importFrom}';`,
+		exportStr = `
+export default FhirDataTypeBuilder;
+export {${functionNames.join(', ')}};
+`,
+		filename = 'index',
+		writeToFile = `
+${AUTO_GENERATED}
+${importStr}
+
+${exportStr}
+`;
+	try {
+		let file = path.resolve(__dirname, BASE_DIR, UTILS_DIR, `index.js`);
+		VERBOSE && console.log(`Writing file ${filename}.js`);
+		await fs.writeFile(file, writeToFile, { flag: 'w' }, callback);
+		VERBOSE && console.log(`Successfully wrote file ${filename}.js`);
+	} catch {
+		VERBOSE && console.log(`Failed to write file ${filename}.js`);
+		failures.push(filename);
+	}
+};
+/********* END INDEX BUILDERS *********/
+/*********** FILE BUILDERS ***********/
+const buildDataTypeFile = async (dataTypes, quantityTypes) => {
+	if (dataTypes.length === 0) {
+		return;
+	}
+
+	const REGEX = /(?<value>__[^_]*__)/g;
+	const REPLACE = '"$<value>"';
+
+	let filename = 'fhirDataTypes',
+		
+		writeToFile = `
+${AUTO_GENERATED}
+`;
+	for (let dataType of dataTypes) {
+		writeToFile =
+			writeToFile +
+			`export const ${dataType.name} = ${JSON.stringify(dataType.schema)
+				.replace(/[\\]?"/g, '')
+				.replace(/\s*=\s*["|']{/g, ' = {')
+				.replace(/}["|'];*/g, '};')
+				// we want to put parentheses back around the values
+				.replace(REGEX, REPLACE)};`;
+	}
+
+	let getSchemaFunc = 
+`
+export default getSchema = (schema) => {
+	return dict[\`\${schema}Const\`]
+}
+`
+	
+
+	let quantityTypesString = `
+export const QuantityVariations = [
+	${quantityTypes.map((elem) => `'${elem}'`).join(', ')}
+];
+`;
+	let mapper = (elem) => `${elem.name}Const: ${elem.name}`;
+	let quantMapper = (elem) => `${elem}Const: Quantity`;
+	writeToFile += quantityTypesString;
+	writeToFile += `const dict = {${dataTypes.map(mapper)},${quantityTypes.map(quantMapper)}}`
+	writeToFile += getSchemaFunc;
+
+	await buildDataTypeIndex(filename);
+
+	try {
+		let file = path.resolve(
+			__dirname,
+			BASE_DIR,
+			DATATYPES_DIR,
+			`${filename}.js`
+		);
+		VERBOSE && console.log(`Writing file ${filename}.js`);
+		await fs.writeFile(file, writeToFile, { flag: 'w' }, callback);
+		VERBOSE && console.log(`Successfully wrote file ${filename}.js`);
+	} catch (error) {
+		VERBOSE &&
+			console.log(
+				`Failed to write file ${filename}.js - ${error.message}`
+			);
+		failures.push(filename);
 	}
 };
 
-const DO_NOT_EXTEND_DOMAINRESOURCE = ['Bundle', 'Parameters', 'Binary'];
-const ASTERISK = '**********************************************************************************************'
-const MAX_LINE_LENGTH = ASTERISK.length - 10;
+const buildDataTypeBuilderFile = async (dataTypes, quantityTypes) => {
+	if (dataTypes.length === 0) {
+		return;
+	}
 
+	let quantitySchema = dataTypes.find(elem => elem.name === 'Quantity').schema
 
-const buildFile = async (resource) => {
+	quantityTypes = quantityTypes.map(elem => ({name: elem, schema: quantitySchema}));
+
+	let writeFuncs = ``,
+		writeStatics = ``,
+		filename = 'fhirDataTypeBuilder',
+		dictEntries = '',
+		exports = [];
+
+	for (let dataType of dataTypes.concat(quantityTypes)) {
+		let params = [];
+		globalJson = JSON.parse(dataType.schema);
+		let newParams = processObjectForDataTypeBuilders(dataType);
+		params.push(...newParams);
+		let functionName = `build${dataType.name}Func`,
+			functionNameExport = `build${dataType.name}`,
+			newStatic = `static ${functionNameExport} = ${functionName};`;
+		dictEntries += `${dataType.name}: this.${functionNameExport},`;
+
+		// and a function tha we export on its own
+		let newFunc = `
+${comments}
+const ${functionName} = ({${params.join(', ')}}) => {
+	let schema = getSchema('${dataType.name}');
+	if (validateArgs(schema, ...arguments)) {
+		return ${JSON.stringify(globalJson).replace(/"/g, '')}
+	}
+}`;
+		writeFuncs += newFunc;
+		writeStatics += newStatic;
+		exports.push(functionNameExport);
+
+		if (newFunc.includes('__')) {
+			needToCheck.push(functionName);
+		}
+		comments = '';
+	}
+
+	let checkString =
+		needToCheck.length > 0
+			? ` Need to check the following functions: ${needToCheck.join(
+					', '
+			  )}`
+			: '';
+	console.log(`Finished building functions.${checkString}`);
+
+	let exportMapper = (elem) => `${elem}Func as ${elem}`
+	// finally, write the file
+	let writeToFile = `
+${AUTO_GENERATED}
+import validateArgs from './validateArgs';
+import getSchema from '../datatypes';
+export default class FhirDataTypeBuilder {
+	dict = {${dictEntries}}
+
+	static getBuilderFunction = (resource) => {
+		return dict[resource];
+	}
+
+	static buildDataType = (resource, ...args) => {
+		return dict[resource](...args);
+	}
+
+	${writeStatics}
+}
+
+${writeFuncs}
+export {${exports.map(exportMapper).join(', ')}};
+`;
+
+	try {
+		buildUtilsIndex(exports, filename);
+	} catch {
+		VERBOSE &&
+			console.log(
+				'failed to write index file for resource type builders'
+			);
+	}
+
+	try {
+		let file = path.resolve(
+			__dirname,
+			BASE_DIR,
+			UTILS_DIR,
+			`${filename}.js`
+		);
+		VERBOSE && console.log(`Writing file ${filename}.js`);
+		await fs.writeFile(file, writeToFile, { flag: 'w' }, callback);
+		VERBOSE && console.log(`Successfully wrote file ${filename}.js`);
+	} catch {
+		VERBOSE && console.log(`Failed to write file ${filename}.js`);
+		failures.push(filename);
+	}
+};
+
+const buildResourceFile = async (resource) => {
 	let json = JSON.parse(resource),
 		schema = json.schema,
 		resourceName = json.name,
@@ -70,8 +328,7 @@ const buildFile = async (resource) => {
 		description = json.description,
 		filename = `${resourceName}Resource` || '__failed';
 	try {
-		let toWrite = 
-`${AUTO_GENERATED}
+		let toWrite = `${AUTO_GENERATED}
 /${ASTERISK}
 Resource: ${resourceName}
 Reference: ${reference}
@@ -99,69 +356,89 @@ generateFhir = () => this.fhir = this.fhir || super.generateJson(fhirGenerator);
 schema = ${JSON.stringify(schema, null, 4)};
 }
 `;
-		let file = `${outputDir}/${filename}.js`;
-		verbose && console.log(`File: ${file}`);
-		await fs.writeFile(file, toWrite, callback);
-		verbose && console.log(`Successfully wrote file ${filename}.js`);
+		let file = path.resolve(
+			__dirname,
+			BASE_DIR,
+			RESOURCES_DIR,
+			`${filename}.js`
+		);
+		VERBOSE && console.log(`File: ${file}`);
+		await fs.writeFile(file, toWrite, { flag: 'w' }, callback);
+		VERBOSE && console.log(`Successfully wrote file ${filename}.js`);
 	} catch {
-		verbose && console.log(`Failed to write file ${filename}.js`);
+		VERBOSE && console.log(`Failed to write file ${filename}.js`);
 		failures.push(filename);
 	}
+};
+/********* END FILE BUILDERS *********/
+/************** HELPERS **************/
+const makeDirs = async () => {
+	let dirs = [
+		path.resolve(__dirname, BASE_DIR, RESOURCES_DIR),
+		path.resolve(__dirname, BASE_DIR, DATATYPES_DIR),
+		path.resolve(__dirname, BASE_DIR, UTILS_DIR),
+	];
+	console.log('Creating directories...');
+	for (let dir of dirs) {
+		try {
+			let files = await fs.readdir(dir);
+			if (CLEAR_DIRECTORIES) {
+				for (let file of files) {
+					fs.unlink(path.resolve(dir, file));
+				}
+			}
+		} catch {
+			try {
+				fs.mkdir(resourceDir, { recursive: true });
+			} catch {
+				console.log(
+					`Unable to create directory '${dir}' - error: ${error.message}`
+				);
+			}
+		}
+	}
+	console.log('Finished creating directories');
+};
+
+const camelCase = (...args) => {
+	let result = '';
+	if (
+		args.filter((elem) => typeof elem === 'string').length != args.length &&
+		args[0] !== null
+	) {
+		throw new Error('All arguments must be strings');
+	}
+	for (let arg of args) {
+		if (result === '') {
+			if (arg === null) {
+				continue;
+			}
+			result = result + `${arg.charAt(0).toLowerCase()}${arg.slice(1)}`;
+		} else {
+			result = result + `${arg.charAt(0).toUpperCase()}${arg.slice(1)}`;
+		}
+	}
+	return result;
 };
 
 const breakString = (str, limit) => {
+	str = str.replace(/\s{2,}/g, '\n\n');
 	let result = '';
-	for(let i = 0, count = 0; i < str.length; i++){
-	   if(count >= limit && str[i] === ' '){
-		  count = 0;
-		  result += '\n';
-	   }else{
-		  count++;
-		  result += str[i];
-	   }
+	for (let i = 0, count = 0; i < str.length; i++) {
+		if (str[i] === '\n') {
+			count = 0;
+			result += str[i];
+		}
+		if (count >= limit && str[i] === ' ') {
+			count = 0;
+			result += '\n';
+		} else {
+			count++;
+			result += str[i];
+		}
 	}
 	return result;
- }
-
-/**
- *
- * @param {string} key The name of the array
- * @param {Array} valueArray The object to process
- * @param {number} depth The maximum allowable depth in case we come across any nested objects
- */
-const buildParameterNameFromArray = async (key, valueArray, depth = 0) => {
-	if (depth >= MAX_DEPTH_FOR_OBJECT_PROCESSING) {
-		return [];
-	}
-	let result = [];
-	let value = valueArray[0];
-	if (value instanceof Object) {
-		let keys = Object.keys(value);
-	}
 };
-
-const buildIndexForBuilders = async (importFrom) => {
-	let filename = 'builders_index',
-		importStr = `import FhirDataTypeBuilder from './${importFrom}';`,
-		exportStr = `export default FhirDataTypeBuilder;`,
-		writeToFile = `
-${AUTO_GENERATED}
-${importStr}
-
-${exportStr}
-`;
-	try {
-		let file = `${outputDir}/${filename}.js`;
-		verbose && console.log(`Writing file ${filename}.js`);
-		await fs.writeFile(file, writeToFile, callback);
-		verbose && console.log(`Successfully wrote file ${filename}.js`);
-	} catch {
-		verbose && console.log(`Failed to write file ${filename}.js`);
-		failures.push(filename);
-	}
-};
-
-var comments = '';
 
 /**
  * A recursive method that generates a json object with function parameters assigned to its properties
@@ -193,13 +470,19 @@ const processObjectForDataTypeBuilders = (obj, rootName = null) => {
 				// this means we have an object here... in this case,
 				// we just create a parameter with the same name and specify
 				// the structure the object should have in a comment
+				
+				let headerStars = '*'.repeat(Math.floor((MAX_LINE_LENGTH - key.length - 2) / 2)),
+					footerStars = '*'.repeat(MAX_LINE_LENGTH - 1),
+					commentHeader = `/${headerStars} ${key} ${headerStars}`,
+					commentFooter = `${footerStars}/`;
+
 				comments =
 					comments +
 					`
-				/*******${key}******
-				${JSON.stringify(valueType[0], null, 2)}
-				*/
-				`;
+${commentHeader}
+${JSON.stringify(valueType[0], null, 2)}
+${commentFooter}
+`;
 				value = `${key}Array`;
 			} else {
 				// otherwise it's a string representing a basic datatype
@@ -209,7 +492,7 @@ const processObjectForDataTypeBuilders = (obj, rootName = null) => {
 			}
 			let newKey = key.replace(/"/g, '');
 
-			let paramName = camelCase(rootName, newKey, value);
+			let paramName = camelCase(rootName, newKey);
 			if (!rootName) {
 				globalJson[key] = paramName;
 			} else {
@@ -229,7 +512,7 @@ const processObjectForDataTypeBuilders = (obj, rootName = null) => {
 				.replace(/[|()]*/g, '');
 			let newKey = key.replace(/"/g, '');
 
-			let paramName = camelCase(rootName, newKey, value);
+			let paramName = camelCase(rootName, newKey);
 			if (!rootName) {
 				globalJson[key] = paramName;
 			} else {
@@ -240,160 +523,6 @@ const processObjectForDataTypeBuilders = (obj, rootName = null) => {
 	}
 	return params;
 };
+/************ END HELPERS ************/
 
-const camelCase = (...args) => {
-	let result = '';
-	if (
-		args.filter((elem) => typeof elem === 'string').length != args.length &&
-		args[0] !== null
-	) {
-		throw new Error('All arguments must be strings');
-	}
-	for (let arg of args) {
-		if (result === '') {
-			if (arg === null) {
-				continue;
-			}
-			result = result + `${arg.charAt(0).toLowerCase()}${arg.slice(1)}`;
-		} else {
-			result = result + `${arg.charAt(0).toUpperCase()}${arg.slice(1)}`;
-		}
-	}
-	return result;
-};
-
-var globalJson;
-
-const needToCheck = [];
-
-const buildDataTypeBuildersFile = async (dataTypes) => {
-	if (dataTypes.length === 0) {
-		return;
-	}
-	let writeFuncs = ``,
-		writeStatics = ``;
-
-	let filename = 'fhirDataTypeBuilder';
-
-	for (let dataType of dataTypes) {
-		let params = [];
-		globalJson = JSON.parse(dataType.schema);
-		let newParams = processObjectForDataTypeBuilders(dataType);
-		params.push(...newParams);
-		let functionName = `build${dataType['name']}`;
-
-		// create a static function for the class definition
-		let newStatic = `static ${functionName} = ${functionName};`;
-
-		// and a function tha we export on its own
-		let newString = `
-${comments}
-	export function ${functionName}(${params.join(', ')}) {
-		if (validateArgs(...arguments)) {
-			return ${JSON.stringify(globalJson).replace(/"/g, '')}
-		}
-	}`;
-
-		writeFuncs = writeFuncs + newString;
-		writeStatics = writeStatics + newStatic;
-
-		if (newString.includes('__')) {
-			needToCheck.push(functionName);
-		}
-	}
-
-	let checkString =
-		needToCheck.length > 0
-			? ` Need to check the following functions: ${needToCheck.join(
-					', '
-			  )}`
-			: '';
-	console.log(`Finished building functions.${checkString}`);
-
-	// finally, write the file
-	let writeToFile = `
-${AUTO_GENERATED}
-import validateArgs from './validateArgs';
-export default class FhirDataTypeBuilder {
-	${writeStatics}
-}
-
-${writeFuncs}
-`;
-
-	try {
-		buildIndexForBuilders(filename);
-	} catch {
-		verbose &&
-			console.log(
-				'failed to write index file for resource type builders'
-			);
-	}
-
-	try {
-		let file = `${outputDir}/${filename}.js`;
-		verbose && console.log(`Writing file ${filename}.js`);
-		await fs.writeFile(file, writeToFile, callback);
-		verbose && console.log(`Successfully wrote file ${filename}.js`);
-	} catch {
-		verbose && console.log(`Failed to write file ${filename}.js`);
-		failures.push(filename);
-	}
-};
-
-const buildDataTypeFile = async (dataTypes) => {
-	if (dataTypes.length === 0) {
-		return;
-	}
-	let filename = 'fhirDataTypes',
-		writeToFile = `
-${AUTO_GENERATED}
-`;
-	for (let dataType of dataTypes) {
-		writeToFile =
-			writeToFile +
-			`export const ${dataType.name} = ${JSON.stringify(
-				dataType.schema
-			)};`;
-	}
-
-	try {
-		let file = `${outputDir}/${filename}.js`;
-		verbose && console.log(`Writing file ${filename}.js`);
-		await fs.writeFile(file, writeToFile, callback);
-		verbose && console.log(`Successfully wrote file ${filename}.js`);
-	} catch (error) {
-		verbose &&
-			console.log(
-				`Failed to write file ${filename}.js - ${error.message}`
-			);
-		failures.push(filename);
-	}
-};
-
-const buildFiles = async (resources, dataTypePages, useVerbose = true) => {
-	verbose = useVerbose;
-	console.log('Writing files...');
-	try {
-		buildDataTypeBuildersFile(dataTypePages);
-		buildDataTypeFile(dataTypePages);
-		buildIndex(resources);
-		for (let resource of resources) {
-			buildFile(resource);
-		}
-	} finally {
-		console.log('Finished writing files.');
-		let failuresString =
-			failures.length === 0 ? '' : ` - ${failures.join(', ')}`;
-		let color = failures.length > 0 ? '\x1b[41m' : '\x1b[32m';
-		console.log(
-			`${color}Failures: (${failures.length})${failuresString}\x1b[0m`
-		);
-	}
-};
-
-module.exports = {
-	buildFile: buildFile,
-	buildFiles: buildFiles,
-	buildIndex: buildIndex,
-};
+module.exports.buildFiles = buildFiles;

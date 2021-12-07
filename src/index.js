@@ -1,5 +1,6 @@
 const FhirJsonFetcher = require('./fhirJsonFetcher');
 const FhirResourceFileGenerator = require('./fhirResourceFileGenerator');
+const config = require('./');
 
 // TODO: Automatically scrape all these resources/datatypes from fhir.org
 const allResources = [
@@ -155,9 +156,8 @@ const allQuantityTypes = [
 	'Count',
 	'Duration',
 	'Distance',
+	'SimpleQuantity',
 ];
-
-const allSpecialCases = ['Reference'];
 
 const allMetadataTypes = [
 	'ContactDetail',
@@ -168,12 +168,6 @@ const allMetadataTypes = [
 	'RelatedArtifact',
 	'TriggerDefinition',
 	'UsageContext',
-];
-
-const allSpecialTypes = [
-	//special types
-	'Dosage',
-	'Meta',
 ];
 
 const allDataTypes = [
@@ -196,7 +190,15 @@ const allDataTypes = [
 	'Timing',
 ];
 
-(function (){
+// TODO: Handle special types
+const allSpecialCases = [
+	//special types
+	'Dosage',
+	'Meta',
+	'Reference',
+];
+
+(async function () {
 	let result = await FhirJsonFetcher.handlePages(
 		allResources,
 		allDataTypes,
@@ -204,6 +206,7 @@ const allDataTypes = [
 	);
 	await FhirResourceFileGenerator.buildFiles(
 		result.resources,
-		result.dataTypes
+		result.dataTypes,
+		allQuantityTypes
 	);
-}());
+})();

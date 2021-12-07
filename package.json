@@ -1,30 +1,34 @@
 {
-  "name": "fhirstarter",
-  "version": "0.0.1",
+  "name": "@capm_diealone/fhirstarter",
+  "version": "0.1.1",
   "packageManager": "yarn@3.1.1",
   "description": "A tool that automatically fetches FHIR resource json descriptions, parses them, and converts them to json objects",
-  "private": true,
-  "module": "src/index.js",
   "main": "src/index.js",
-  "author": "Matt Jewett",
-  "license": "ISC",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/humungoloid/fhirstarter.git"
-  },
-  "dependencies": {
-    "axios": "^0.24.0",
-    "node-html-parser": "^5.1.0",
-    "prettyjson": "^1.2.1"
-  },
   "scripts": {
     "start": "node .",
-    "poststart": "npx prettier --write \"output/*\""
+    "start:pretty": "yarn start && yarn prettier --write output/**"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/humungoloid/fhirstarter.git"
+  },
+  "keywords": [
+    "fhir",
+    "hl7"
+  ],
+  "author": "Matt Jewett",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/humungoloid/fhirstarter/issues"
+  },
+  "homepage": "https://github.com/humungoloid/fhirstarter#readme",
   "files": [
     "src"
   ],
-  "devDependencies": {
+  "dependencies": {
+    "axios": "^0.24.0",
+    "config": "^3.3.6",
+    "node-html-parser": "^5.1.0",
     "prettier": "2.5.1"
   }
 }
