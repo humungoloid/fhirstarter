@@ -1,7 +1,7 @@
 const axios = require('axios');
 const HTMLParser = require('node-html-parser');
 const fs = require('fs').promises;
-
+const log = require('./logging');
 const path = require('path');
 
 const maturities = path.resolve(__dirname, '../.fhirstarter/maturity.json');
@@ -25,7 +25,7 @@ const readMaturities = () => {
 		fileContentsJson = JSON.parse(fileContents);
 	}
 	catch {
-		console.log('Unable to read file contents, or the file contents are not properly formatted JSON.')
+		log.info('Unable to read file contents, or the file contents are not properly formatted JSON.')
 	}
 }
 

@@ -1,7 +1,10 @@
-const FhirJsonFetcher = require('./fhirJsonFetcher');
-const { processResourceJson } = require('./fhirResourceSchemaGenerator');
+const FhirJsonFetcher = require('../fetcher/fhirJsonFetcher');
+const { processResourceJson } = require('../processors/fhirResourceProcessor');
 const fs = require('fs').promises;
 const path = require('path');
+const log = require('../logging');
+
+const config = require('config');
 
 const REMOVE_UNDERSCORE_REGEX = /__(?<value>[^_]*)__/;
 const AUTO_GENERATED = '/* This file was generated automagically by Matt */';
@@ -41,7 +44,7 @@ const buildFiles = async (
 ) => {
 	VERBOSE = useVerbose;
 	await makeDirs();
-	console.log('Writing files...');
+	log.info('Writing files...');
 	try {
 		dataTypePages &&
 			dataTypePages.length > 0 &&
@@ -56,11 +59,10 @@ const buildFiles = async (
 			}
 		}
 	} finally {
-		console.log('Finished writing files.');
+		log.info('Finished writing files.');
 		let failuresString =
 			failures.length === 0 ? '' : ` - ${failures.join(', ')}`;
-		let color = failures.length > 0 ? '\x1b[41m' : '\x1b[32m';
-		console.log(
+		log.info(
 			`${color}Failures: (${failures.length})${failuresString}\x1b[0m`
 		);
 	}
@@ -79,10 +81,7 @@ export default getSchema;
 	try {
 		await fs.writeFile(file, writeToFile, { flag: 'w' }, callback);
 	} catch (error) {
-		VERBOSE &&
-			console.log(
-				`Failed to write file ${filename}.js - ${error.message}`
-			);
+		log.error(`Failed to write file ${filename}.js - ${error.message}`);
 		failures.push(filename);
 	}
 };
@@ -115,11 +114,14 @@ ${AUTO_GENERATED}
 			.map(mapping)} };`;
 		let writeToFile = `${importAll}${exportStatement}`;
 		let file = path.resolve(__dirname, BASE_DIR, RESOURCES_DIR, `index.js`);
-		VERBOSE && console.log(`File: ${file}`);
+		VERBOSE && log.info(`File: ${file}`);
 		await fs.writeFile(file, writeToFile, { flag: 'w' }, callback);
-		VERBOSE && console.log(`Successfully wrote file ${filename}.js`);
-	} catch {
-		VERBOSE && console.log(`Failed to write file ${filename}.js`);
+		VERBOSE && log.success(`Successfully wrote file ${filename}.js`);
+	} catch (error) {
+		VERBOSE &&
+			log.error(
+				`Failed to write file ${filename}.js - Error: ${error.message}`
+			);
 		failures.push(filename);
 	}
 };
@@ -142,11 +144,14 @@ ${exportStr}
 `;
 	try {
 		let file = path.resolve(__dirname, BASE_DIR, UTILS_DIR, `index.js`);
-		VERBOSE && console.log(`Writing file ${filename}.js`);
+		VERBOSE && log.info(`Writing file ${filename}.js`);
 		await fs.writeFile(file, writeToFile, { flag: 'w' }, callback);
-		VERBOSE && console.log(`Successfully wrote file ${filename}.js`);
-	} catch {
-		VERBOSE && console.log(`Failed to write file ${filename}.js`);
+		VERBOSE && log.success(`Successfully wrote file ${filename}.js`);
+	} catch (error) {
+		VERBOSE &&
+			log.error(
+				`Failed to write file ${filename}.js - Error: ${error.message}`
+			);
 		failures.push(filename);
 	}
 };
@@ -161,7 +166,6 @@ const buildDataTypeFile = async (dataTypes, quantityTypes) => {
 	const REPLACE = '"$<value>"';
 
 	let filename = 'fhirDataTypes',
-		
 		writeToFile = `
 ${AUTO_GENERATED}
 `;
@@ -176,13 +180,11 @@ ${AUTO_GENERATED}
 				.replace(REGEX, REPLACE)};`;
 	}
 
-	let getSchemaFunc = 
-`
+	let getSchemaFunc = `
 export default getSchema = (schema) => {
 	return dict[\`\${schema}Const\`]
 }
-`
-	
+`;
 
 	let quantityTypesString = `
 export const QuantityVariations = [
@@ -192,7 +194,9 @@ export const QuantityVariations = [
 	let mapper = (elem) => `${elem.name}Const: ${elem.name}`;
 	let quantMapper = (elem) => `${elem}Const: Quantity`;
 	writeToFile += quantityTypesString;
-	writeToFile += `const dict = {${dataTypes.map(mapper)},${quantityTypes.map(quantMapper)}}`
+	writeToFile += `const dict = {${dataTypes.map(mapper)},${quantityTypes.map(
+		quantMapper
+	)}}`;
 	writeToFile += getSchemaFunc;
 
 	await buildDataTypeIndex(filename);
@@ -204,13 +208,13 @@ export const QuantityVariations = [
 			DATATYPES_DIR,
 			`${filename}.js`
 		);
-		VERBOSE && console.log(`Writing file ${filename}.js`);
+		VERBOSE && log.info(`Writing file ${filename}.js`);
 		await fs.writeFile(file, writeToFile, { flag: 'w' }, callback);
-		VERBOSE && console.log(`Successfully wrote file ${filename}.js`);
+		VERBOSE && log.success(`Successfully wrote file ${filename}.js`);
 	} catch (error) {
 		VERBOSE &&
-			console.log(
-				`Failed to write file ${filename}.js - ${error.message}`
+			log.error(
+				`Failed to write file ${filename}.js  - Error: ${error.message}`
 			);
 		failures.push(filename);
 	}
@@ -221,9 +225,14 @@ const buildDataTypeBuilderFile = async (dataTypes, quantityTypes) => {
 		return;
 	}
 
-	let quantitySchema = dataTypes.find(elem => elem.name === 'Quantity').schema
+	let quantitySchema = dataTypes.find(
+		(elem) => elem.name === 'Quantity'
+	).schema;
 
-	quantityTypes = quantityTypes.map(elem => ({name: elem, schema: quantitySchema}));
+	quantityTypes = quantityTypes.map((elem) => ({
+		name: elem,
+		schema: quantitySchema,
+	}));
 
 	let writeFuncs = ``,
 		writeStatics = ``,
@@ -266,9 +275,10 @@ const ${functionName} = ({${params.join(', ')}}) => {
 					', '
 			  )}`
 			: '';
-	console.log(`Finished building functions.${checkString}`);
+	log.info(`Finished building functions.`);
+	log.warning(`${checkString}`);
 
-	let exportMapper = (elem) => `${elem}Func as ${elem}`
+	let exportMapper = (elem) => `${elem}Func as ${elem}`;
 	// finally, write the file
 	let writeToFile = `
 ${AUTO_GENERATED}
@@ -294,10 +304,10 @@ export {${exports.map(exportMapper).join(', ')}};
 
 	try {
 		buildUtilsIndex(exports, filename);
-	} catch {
+	} catch (error) {
 		VERBOSE &&
-			console.log(
-				'failed to write index file for resource type builders'
+			log.error(
+				`failed to write index file for resource type builders - Error: ${error.message}`
 			);
 	}
 
@@ -308,11 +318,14 @@ export {${exports.map(exportMapper).join(', ')}};
 			UTILS_DIR,
 			`${filename}.js`
 		);
-		VERBOSE && console.log(`Writing file ${filename}.js`);
+		VERBOSE && log.info(`Writing file ${filename}.js`);
 		await fs.writeFile(file, writeToFile, { flag: 'w' }, callback);
-		VERBOSE && console.log(`Successfully wrote file ${filename}.js`);
-	} catch {
-		VERBOSE && console.log(`Failed to write file ${filename}.js`);
+		VERBOSE && log.success(`Successfully wrote file ${filename}.js`);
+	} catch (error) {
+		VERBOSE &&
+			log.error(
+				`Failed to write file ${filename}.js - Error: ${error.message}`
+			);
 		failures.push(filename);
 	}
 };
@@ -362,11 +375,14 @@ schema = ${JSON.stringify(schema, null, 4)};
 			RESOURCES_DIR,
 			`${filename}.js`
 		);
-		VERBOSE && console.log(`File: ${file}`);
+		VERBOSE && log.info(`File: ${file}`);
 		await fs.writeFile(file, toWrite, { flag: 'w' }, callback);
-		VERBOSE && console.log(`Successfully wrote file ${filename}.js`);
-	} catch {
-		VERBOSE && console.log(`Failed to write file ${filename}.js`);
+		VERBOSE && log.success(`Successfully wrote file ${filename}.js`);
+	} catch (error) {
+		VERBOSE &&
+			log.error(
+				`Failed to write file ${filename}.js - Error: ${error.message}`
+			);
 		failures.push(filename);
 	}
 };
@@ -378,26 +394,30 @@ const makeDirs = async () => {
 		path.resolve(__dirname, BASE_DIR, DATATYPES_DIR),
 		path.resolve(__dirname, BASE_DIR, UTILS_DIR),
 	];
-	console.log('Creating directories...');
+	log.info('Creating directories...');
 	for (let dir of dirs) {
 		try {
 			let files = await fs.readdir(dir);
 			if (CLEAR_DIRECTORIES) {
+				log.warning(`Deleting files in ${dir}...`);
 				for (let file of files) {
 					fs.unlink(path.resolve(dir, file));
 				}
 			}
 		} catch {
 			try {
+				log.info(
+					`${dir} could not be read; assuming it doesn't exist, and creating it.`
+				);
 				fs.mkdir(resourceDir, { recursive: true });
-			} catch {
-				console.log(
+			} catch (error) {
+				log.error(
 					`Unable to create directory '${dir}' - error: ${error.message}`
 				);
 			}
 		}
 	}
-	console.log('Finished creating directories');
+	log.info('Finished creating directories');
 };
 
 const camelCase = (...args) => {
@@ -470,8 +490,10 @@ const processObjectForDataTypeBuilders = (obj, rootName = null) => {
 				// this means we have an object here... in this case,
 				// we just create a parameter with the same name and specify
 				// the structure the object should have in a comment
-				
-				let headerStars = '*'.repeat(Math.floor((MAX_LINE_LENGTH - key.length - 2) / 2)),
+
+				let headerStars = '*'.repeat(
+						Math.floor((MAX_LINE_LENGTH - key.length - 2) / 2)
+					),
 					footerStars = '*'.repeat(MAX_LINE_LENGTH - 1),
 					commentHeader = `/${headerStars} ${key} ${headerStars}`,
 					commentFooter = `${footerStars}/`;

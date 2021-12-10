@@ -1,7 +1,8 @@
 const axios = require('axios');
 const HTMLParser = require('node-html-parser');
-const SchemaGenerator = require('./fhirResourceSchemaGenerator');
+const SchemaGenerator = require('../processors/fhirResourceProcessor');
 const fs = require('fs').promises;
+const resources = require('/.resources');
 
 const path = require('path');
 
@@ -14,7 +15,7 @@ const verbose = true;
 
 const instance = axios.create({
 	baseURL: FHIR_BASE_URL,
-	timeout: 120000,
+	timeout: 60000,
 	headers: { 'X-Requested-With': 'XMLHttpRequest' },
 	transformResponse: [(data) => data],
 });
@@ -40,42 +41,46 @@ const fetchAllPages = async () => {
 
 	try {
 		let response = await getDataTypesPage('/datatypes.html');
-
-		console.log('Got data types');
+		log.success('Retrieved data types');
 		result.dataTypesPage = response.data;
-		let responseTwo = await getDataTypesPage('/metadatatypes.html');
-		console.log('Got metadata types');
-		result.metaDataTypesPage = responseTwo.data;
-	} catch {
-		console.log('failed in fetchAllPages');
+	} catch (error) {
+		log.error(`Failed to fetch datatypes - Error: ${error.message}`);
 	}
+
+	try {
+		let responseTwo = await getDataTypesPage('/metadatatypes.html');
+		log.success('Retrieved metadata datatypes');
+		result.metaDataTypesPage = responseTwo.data;
+	} catch (error) {
+		log.error(`failed in fetchAllPages - Error: ${error.message}`);
+	}
+
 	return result;
 };
 
-const handlePages = async (
-	resourcesToWorkWith,
-	dataTypesToWorkWith,
-	metaDataTypes
-) => {
+const handlePages = async (resources, dataTypes, metaDataTypes) => {
+	resources = resources || resources.allResources;
+	dataTypes = dataTypes || resources.allDataTypes;
+	metaDataTypes = metaDataTypes || resources.allMetadataTypes;
 	let dataTypeSchemas = [],
 		resourceSchemas = [],
 		result;
 
-	for (let page of resourcesToWorkWith) {
+	for (let page of resources) {
 		try {
 			result = await getFhirPage(page);
 			resourceSchemas.push(result);
-		} catch {
-			console.log(`failed: ${page}`);
+		} catch (error) {
+			log.error(`Failed to fetch ${page} - Error: ${error.message}`);
 		}
 	}
 
-	for (let dataType of dataTypesToWorkWith) {
+	for (let dataType of dataTypes) {
 		try {
 			result = await getDataType(dataType);
 			dataTypeSchemas.push({ name: dataType, schema: result });
-		} catch {
-			console.log(`failed: ${dataType}`);
+		} catch (error) {
+			log.error(`Failed to fetch ${dataType} - Error: ${error.message}`);
 		}
 	}
 
@@ -83,8 +88,10 @@ const handlePages = async (
 		try {
 			result = await getMetaDataType(metaDataType);
 			dataTypeSchemas.push({ name: metaDataType, schema: result });
-		} catch {
-			console.log(`failed: ${metaDataType}`);
+		} catch (error) {
+			log.error(
+				`Failed to fetch ${metaDataType} - Error: ${error.message}`
+			);
 		}
 	}
 
@@ -93,8 +100,7 @@ const handlePages = async (
 
 const getDataTypesPage = async (page) => {
 	let response = instance.get(page);
-	console.log('response successful');
-	resolve(response);
+	return response;
 };
 
 const getFhirPage = async (resourceName) => {
@@ -122,51 +128,21 @@ const getFhirPage = async (resourceName) => {
 			.map((elem) => elem.innerText)
 			.join('');
 	} catch {
-		try {
-			description = data
-				.querySelector('#segment-content')
-				.querySelector('[name=scope]')
-				.parentNode.querySelectorAll('p')
-				.map((elem) => elem.innerText)
-				.join('');
-		} catch {
-			try {
-				description = data
-					.querySelector('#segment-content')
-					.querySelector('[name=bnc]')
-					.parentNode.querySelectorAll('p')
-					.map((elem) => elem.innerText)
-					.join('');
-			} catch {
-				try {
-					description = data
-					.querySelector('#segment-content')
-					.querySelectorAll('h2')
-					.filter(
-						(elem) =>
-							elem.childNodes &&
-							elem.childNodes.length >= 2 &&
-							elem.childNodes[1].rawText.includes(
-								'Scope and Usage'
-							)
-					)[0]
-					.nextSibling.map((elem) => elem.innerText)
-					.join('');
-				} catch {
-					console.log(`Tried everything, still failed. Resource: ${resourceName}`)
-				}
-			}
-		}
+		log.error(
+			`Unable to process resource ${resourceName} - Error: ${error.message}`
+		);
 	}
 
 	child.childNodes.map((elem) => (rawJson = rawJson + elem.innerText));
 	let result = '';
 	try {
 		result = SchemaGenerator.processResourceJson(rawJson, resourceName);
-		console.log(`Success: ${resourceName}`);
+		log.success(`Successfully processed ${resourceName}`);
 		successes.push(resourceName);
-	} catch {
-		console.log(`Failed: ${resourceName}`);
+	} catch (error) {
+		log.error(
+			`Unable to process ${resourceName} - Error: ${error.message}`
+		);
 		failures.push(resourceName);
 	}
 	return JSON.stringify({
@@ -178,35 +154,39 @@ const getFhirPage = async (resourceName) => {
 };
 
 const processPageData = (response, dataType) => {
-	let data = HTMLParser.parse(response.data),
-		childOne = data.querySelector(`#tabs-${dataType}-json`),
-		child = HTMLParser.parse(
-			childOne.querySelector(`#json`).querySelector(`#json-inner`)
-				.childNodes[1].childNodes[0].innerText
-		),
-		rawJson = '';
-	child.childNodes.map((elem) => (rawJson = rawJson + elem.innerText));
-	let result = SchemaGenerator.processResourceJson(rawJson);
+	try {
+		let data = HTMLParser.parse(response.data),
+			childOne = data.querySelector(`#tabs-${dataType}-json`),
+			child = HTMLParser.parse(
+				childOne.querySelector(`#json`).querySelector(`#json-inner`)
+					.childNodes[1].childNodes[0].innerText
+			),
+			rawJson = '';
+		child.childNodes.map((elem) => (rawJson = rawJson + elem.innerText));
+		let result = SchemaGenerator.processResourceJson(rawJson);
 
-	console.log(`Success: ${dataType}`);
-	return JSON.stringify(result);
+		log.success(`Successfully processed ${dataType}`);
+		return JSON.stringify(result);
+	} catch (error) {
+		log.error(`Unable to process ${dataType} - Error: ${error.message}`);
+	}
 };
 
 const getDataType = async (dataType) => {
-	let response = await instance.get(`datatypes.html`);
 	try {
-		return processPageData(response, dataType);
-	} catch {
-		reject('getDataType failed');
+		let response = await instance.get(`datatypes.html`);
+	} catch (error) {
+		log.error(`Unable to fetch ${dataType} - Error: ${error.message}`);
 	}
+	return processPageData(response, dataType);
 };
 
 const getMetaDataType = async (dataType) => {
 	try {
 		let response = await instance.get(`metadatatypes.html`);
 		return processPageData(response, dataType);
-	} catch {
-		reject('getMetaDataType failed');
+	} catch (error) {
+		log.error(`Unable to fetch ${dataType} - Error: ${error.message}`);
 	}
 };
 
