@@ -1,6 +1,7 @@
 const fs = require('fs').promises;
 const path = require('path');
 const log = require('../logging');
+const config = require('../config');
 
 const RESOURCES_DIR = config.output.dir.resource;
 const UTILS_DIR = config.output.dir.utils;

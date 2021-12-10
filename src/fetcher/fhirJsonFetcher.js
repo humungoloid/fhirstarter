@@ -2,8 +2,8 @@ const axios = require('axios');
 const HTMLParser = require('node-html-parser');
 const SchemaGenerator = require('../processors/fhirResourceProcessor');
 const fs = require('fs').promises;
-const resources = require('/.resources');
-
+const resources = require('../resources');
+const log = require('../logging');
 const path = require('path');
 
 const outputDir = path.resolve(__dirname, '../output');
@@ -175,10 +175,10 @@ const processPageData = (response, dataType) => {
 const getDataType = async (dataType) => {
 	try {
 		let response = await instance.get(`datatypes.html`);
+		return processPageData(response, dataType);
 	} catch (error) {
 		log.error(`Unable to fetch ${dataType} - Error: ${error.message}`);
 	}
-	return processPageData(response, dataType);
 };
 
 const getMetaDataType = async (dataType) => {

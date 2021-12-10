@@ -2,6 +2,7 @@ const axios = require('axios');
 const HTMLParser = require('node-html-parser');
 const fs = require('fs').promises;
 const log = require('./logging');
+const config = require('./config');
 const path = require('path');
 
 const maturities = path.resolve(__dirname, '../.fhirstarter/maturity.json');
@@ -21,16 +22,17 @@ const instance = axios.create({
 const readMaturities = () => {
 	let fileContents, fileContentsJson;
 	try {
-		fileContents = await fs.readFile(maturities),
-		fileContentsJson = JSON.parse(fileContents);
+		(fileContents = await fs.readFile(maturities)),
+			(fileContentsJson = JSON.parse(fileContents));
+	} catch {
+		log.info(
+			'Unable to read file contents, or the file contents are not properly formatted JSON.'
+		);
 	}
-	catch {
-		log.info('Unable to read file contents, or the file contents are not properly formatted JSON.')
-	}
-}
+};
 
 const checkForUpdates = () => {
 	let response = await instance.get('resourcelist.html');
 	let data = HTMLParser.parse(response);
-	let child = data.querySelector()
-}
+	let child = data.querySelector();
+};
