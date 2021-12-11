@@ -1,7 +1,7 @@
 const fs = require('fs').promises;
 const path = require('path');
-const log = require('../logging');
-const config = require('../config');
+const log = require('../utils/logging');
+const config = require('config');
 
 const RESOURCES_DIR = config.output.dir.resource;
 const UTILS_DIR = config.output.dir.utils;
@@ -12,7 +12,7 @@ const VERBOSE = config.logging.verbose;
 module.exports = {
 	makeDirs: async () => {
 		let dirs = [RESOURCES_DIR, UTILS_DIR, DATATYPES_DIR];
-		VERBOSE && log.info('Creating directories...');
+		log.info('Creating directories...');
 		for (let dir of dirs) {
 			try {
 				let files = await fs.readdir(dir);
@@ -24,11 +24,10 @@ module.exports = {
 				}
 			} catch {
 				try {
-					VERBOSE &&
-						log.info(
-							`${dir} could not be read; assuming it doesn't exist, and creating it.`
-						);
-					fs.mkdir(resourceDir, { recursive: true });
+					log.info(
+						`${dir} could not be read; assuming it doesn't exist, and creating it.`
+					);
+					fs.mkdir(dir, { recursive: true });
 				} catch (error) {
 					log.error(
 						`Unable to create directory '${dir}' - error: ${error.message}`
@@ -36,7 +35,7 @@ module.exports = {
 				}
 			}
 		}
-		VERBOSE && log.info('Finished creating directories');
+		log.info('Finished creating directories');
 	},
 
 	camelCase: (...args) => {
@@ -64,7 +63,7 @@ module.exports = {
 	},
 
 	breakString: (str, limit) => {
-		str = str.replace(/\s{2,}/g, '\n\n');
+		str = str.replace(/\s{2,}/g, '\n');
 		let result = '';
 		for (let i = 0, count = 0; i < str.length; i++) {
 			if (str[i] === '\n') {

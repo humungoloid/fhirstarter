@@ -1,7 +1,12 @@
+require('dotenv').config();
 const path = require('path');
 const defer = require('config/defer').deferConfig;
 
-module.exports = {
+const env = process.env.NODE_ENV;
+process.env.FHIR_BASE_OUTPUTDIR ??= './output';
+
+const dev = {
+	headerComment: '/* Generated automagically by FhirStarter*/',
 	templates: {
 		resourceClass: null,
 		functionBuilderClass: null,
@@ -9,16 +14,26 @@ module.exports = {
 	},
 	output: {
 		dir: {
-			base: defer(() => path.resolve(__dirname, 'output')),
-			resource: defer(() => path.resolve(this.base, 'resource')),
-			utils: defer(() => path.resolve(this.base, 'utils')),
-			datatypes: defer(() => path.resolve(this.base, 'datatypes')),
+			base: process.env.FHIR_BASE_OUTPUTDIR,
+			resource: path.resolve(
+				process.env.FHIR_BASE_OUTPUTDIR,
+				process.env.FHIR_RESOURCE_OUTPUTDIR || 'resource'
+			),
+			utils: path.resolve(
+				process.env.FHIR_BASE_OUTPUTDIR,
+				process.env.FHIR_UTILS_OUTPUTDIR || 'utils'
+			),
+			datatypes: path.resolve(
+				process.env.FHIR_BASE_OUTPUTDIR,
+				process.env.FHIR_DATATYPES_OUTPUTDIR || 'datatypes'
+			),
 		},
 		prettify: true,
-		maxLineLength: 90,
+		maxLineLength: process.env.FHIR_OUTPUT_MAXLINELENGTH || 120,
 		cleanupDirectories: true,
 	},
 	http: {
+		timeoutMs: 60000,
 		baseUrl: 'https://www.hl7.org/fhir',
 		resourceList: 'resourcelist.html',
 		dataTypes: 'datatypes.html',
@@ -26,6 +41,14 @@ module.exports = {
 	},
 	logging: {
 		level: 'verbose',
-		verbose: defer(() => this.level === 'verbose'),
+	},
+	processing: {
+		extendOnlyBaseResource: ['Bundle', 'Parameters', 'Binary'],
 	},
 };
+
+const config = {
+	dev,
+};
+
+module.exports = config['dev'];

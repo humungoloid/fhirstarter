@@ -1,1 +1,1 @@
-module.exports = require('./fhirstarter.config.js');
+module.exports = require('../fhirstarter.config.js');

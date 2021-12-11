@@ -168,7 +168,7 @@ module.exports = {
 	],
 
 	allDataTypes: [
-		//data types
+		// data types
 		'Address',
 		'Annotation',
 		'Attachment',
@@ -189,7 +189,7 @@ module.exports = {
 
 	// TODO: Handle special types
 	allSpecialCases: [
-		//special types
+		// special types
 		'Dosage',
 		'Meta',
 		'Reference',

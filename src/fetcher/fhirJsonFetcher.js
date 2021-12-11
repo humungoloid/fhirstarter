@@ -1,27 +1,20 @@
 const axios = require('axios');
 const HTMLParser = require('node-html-parser');
 const SchemaGenerator = require('../processors/fhirResourceProcessor');
-const fs = require('fs').promises;
-const resources = require('../resources');
-const log = require('../logging');
+const log = require('../utils/logging');
 const path = require('path');
+const config = require('config');
 
-const outputDir = path.resolve(__dirname, '../output');
-
-const FHIR_BASE_URL = `https://www.hl7.org/fhir`;
+const FHIR_BASE_URL = config.http.baseUrl;
+const TIMEOUT = config.http.timeout;
 //const MULTIVALUE_REGEX = /\[{(?<value>[^}\/]*)}]*,\s*\/\/\s*(?<comment>[^"]*)\\r\\n)/
-
-const verbose = true;
 
 const instance = axios.create({
 	baseURL: FHIR_BASE_URL,
-	timeout: 60000,
+	timeout: TIMEOUT,
 	headers: { 'X-Requested-With': 'XMLHttpRequest' },
 	transformResponse: [(data) => data],
 });
-
-const successes = [];
-const failures = [];
 
 var dataTypePage, metaDataTypePage;
 
@@ -29,36 +22,36 @@ const hasData = () => {
 	return !!dataTypePage && !!metaDataTypePage;
 };
 
-/**
- *
- * @returns {Object} An object containing data type and metadata type pages
- */
-const fetchAllPages = async () => {
-	const result = {
-		dataTypesPage: null,
-		metaDataTypesPage: null,
-	};
+// /**
+//  *
+//  * @returns {Object} An object containing data type and metadata type pages
+//  */
+// const fetchAllPages = async () => {
+// 	const result = {
+// 		dataTypesPage: null,
+// 		metaDataTypesPage: null,
+// 	};
 
-	try {
-		let response = await getDataTypesPage('/datatypes.html');
-		log.success('Retrieved data types');
-		result.dataTypesPage = response.data;
-	} catch (error) {
-		log.error(`Failed to fetch datatypes - Error: ${error.message}`);
-	}
+// 	try {
+// 		let response = await getDataTypesPage('/datatypes.html');
+// 		log.success('Retrieved data types');
+// 		result.dataTypesPage = response.data;
+// 	} catch (error) {
+// 		log.error(`Failed to fetch datatypes - Error: ${error.message}`);
+// 	}
 
-	try {
-		let responseTwo = await getDataTypesPage('/metadatatypes.html');
-		log.success('Retrieved metadata datatypes');
-		result.metaDataTypesPage = responseTwo.data;
-	} catch (error) {
-		log.error(`failed in fetchAllPages - Error: ${error.message}`);
-	}
+// 	try {
+// 		let responseTwo = await getDataTypesPage('/metadatatypes.html');
+// 		log.success('Retrieved metadata datatypes');
+// 		result.metaDataTypesPage = responseTwo.data;
+// 	} catch (error) {
+// 		log.error(`failed in fetchAllPages - Error: ${error.message}`);
+// 	}
 
-	return result;
-};
+// 	return result;
+// };
 
-const handlePages = async (resources, dataTypes, metaDataTypes) => {
+module.exports = async (resources, dataTypes, metaDataTypes) => {
 	resources = resources || resources.allResources;
 	dataTypes = dataTypes || resources.allDataTypes;
 	metaDataTypes = metaDataTypes || resources.allMetadataTypes;
@@ -98,10 +91,10 @@ const handlePages = async (resources, dataTypes, metaDataTypes) => {
 	return { resources: resourceSchemas, dataTypes: dataTypeSchemas };
 };
 
-const getDataTypesPage = async (page) => {
-	let response = instance.get(page);
-	return response;
-};
+// const getDataTypesPage = async (page) => {
+// 	let response = instance.get(page);
+// 	return response;
+// };
 
 const getFhirPage = async (resourceName) => {
 	let response = await instance.get(`/${resourceName}.html`);
@@ -128,9 +121,8 @@ const getFhirPage = async (resourceName) => {
 			.map((elem) => elem.innerText)
 			.join('');
 	} catch {
-		log.error(
-			`Unable to process resource ${resourceName} - Error: ${error.message}`
-		);
+		log.warning(`Unable to get a description for ${resourceName}`);
+		description = 'No description could be found for this resource';
 	}
 
 	child.childNodes.map((elem) => (rawJson = rawJson + elem.innerText));
@@ -138,12 +130,11 @@ const getFhirPage = async (resourceName) => {
 	try {
 		result = SchemaGenerator.processResourceJson(rawJson, resourceName);
 		log.success(`Successfully processed ${resourceName}`);
-		successes.push(resourceName);
 	} catch (error) {
 		log.error(
 			`Unable to process ${resourceName} - Error: ${error.message}`
 		);
-		failures.push(resourceName);
+		FAILURES.push(resourceName);
 	}
 	return JSON.stringify({
 		name: resourceName,
@@ -191,12 +182,3 @@ const getMetaDataType = async (dataType) => {
 };
 
 const getPage = async (page) => {};
-
-module.exports = {
-	fetchAll: fetchAllPages,
-	handlePages: handlePages,
-	getDataTypesPage: getDataTypesPage,
-	getMetaDataType: getMetaDataType,
-	getFhirPage: getFhirPage,
-	getDataType: getDataType,
-};

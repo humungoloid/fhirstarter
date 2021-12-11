@@ -1,21 +1,33 @@
 require('dotenv').config();
-
-process.env['NODE_CONFIG_DIR'] = './';
 const config = require('config');
+const log = require('./utils/logging');
 
-const FhirJsonFetcher = require('./fetcher/fhirJsonFetcher');
-const FhirResourceFileGenerator = require('./file/fhirResourceFileGenerator');
-const resources = require('./resources');
+global.VERBOSE = config.get('logging.level') === true;
+global.AUTO_GENERATED = config.headerComment;
+global.FAILURES = [];
+global.NESTING = 0;
+
+const handlePages = require('./fetcher/fhirJsonFetcher');
+const FileGenerator = require('./file/fileGenerator');
+const resources = require('./data/resources');
+const ImagingStudyResource = require('../../../omega-ui/app/core/src/fhir/resource/ImagingStudyResource');
 
 (async function () {
-	let result = await FhirJsonFetcher.handlePages(
-		resources.allResources,
-		resources.allDataTypes,
-		resources.allMetadataTypes
-	);
-	await FhirResourceFileGenerator.buildFiles(
-		result.resources,
-		result.dataTypes,
-		resources.allQuantityTypes
-	);
+	try {
+		let result = await handlePages(
+			resources.allResources,
+			resources.allDataTypes,
+			resources.allMetadataTypes
+		);
+		await FileGenerator.buildFiles(
+			result.resources,
+			result.dataTypes,
+			resources.allQuantityTypes
+		);
+		log.success('Finished!');
+		let logFunc = FAILURES.length === 0 ? log.success : log.error;
+		logFunc(`Failures: [${FAILURES.join(', ')}]`);
+	} catch (error) {
+		log.error(`Failed - Error: ${error.message}`);
+	}
 })();

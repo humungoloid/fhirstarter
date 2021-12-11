@@ -16,7 +16,7 @@ const MARKDOWN_REGEX = /\s*(\S|\s)*/;
 const UNSIGNEDINT_REGEX = /[0]|([1-9]\d*)/;
 const POSITIVEINT_REGEX = /+?[1-9]\d*/;
 
-const primitiveTypes = {
+module.exports = {
 	boolean: {
 		type: 'boolean',
 		values: [true, false],
@@ -73,3 +73,5 @@ const primitiveTypes = {
 	},
 	uuid: { type: 'string' },
 };
+
+export default primitiveTypes;

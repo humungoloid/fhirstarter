@@ -5,5 +5,8 @@
 	"editor.defaultFormatter": "esbenp.prettier-vscode",
 	"prettier.tabWidth": 4, // matt hates spaces
 	"prettier.useTabs": true,
-	"prettier.singleQuote": true
+	"prettier.singleQuote": true,
+	"editor.formatOnSave": true,
+	"prettier.proseWrap": "always",
+	"prettier.printWidth": 120
 }

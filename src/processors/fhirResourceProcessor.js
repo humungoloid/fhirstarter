@@ -22,6 +22,22 @@ const processJson = (jsonToProcess, resourceName) => {
 		.replace(/",[A-Za-z0-9(),.:]*(?:Oneofthese)+\d:/, '",')
 		.replace(HANDLE_OPTION_REGEX, HANDLE_OPTION_REPLACEMENT_STRING);
 
+	if (resourceName === 'SubstanceSpecification') {
+		// special case; for some reason the json is all jacked up for SubstanceSpecification...
+		newJson = {
+			resourceType: 'SubstanceSpecification',
+			identifier: '__Identifier__',
+			type: '__CodeableConcept__',
+			status: '__CodeableConcept__',
+			domain: '__CodeableConcept__',
+			source: ['__Reference(DocumentReference)__'],
+			nucleicAcid: '__Reference(SubstanceNucleicAcid)__',
+			polymer: '__Reference(SubstancePolymer)__',
+			protein: '__Reference(SubstanceProtein)__',
+			sourceMaterial: '__Reference(SubstanceSourceMaterial)__',
+		};
+	}
+
 	return JSON.parse(newJson);
 };
 
