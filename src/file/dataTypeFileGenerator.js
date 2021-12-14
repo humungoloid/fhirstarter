@@ -1,7 +1,7 @@
 const fs = require('fs').promises;
 const path = require('path');
-const log = require('../utils/logging');
 const config = require('config');
+const log = require('../utils/logging');
 
 const DATATYPES_DIR = config.output.dir.datatypes;
 

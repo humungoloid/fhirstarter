@@ -1,7 +1,7 @@
 const fs = require('fs').promises;
+const config = require('config');
 const path = require('path');
 const log = require('../utils/logging');
-const config = require('config');
 const breakString = require('../utils/generatorUtils').breakString;
 
 const RESOURCES_DIR = config.output.dir.resource;
@@ -17,7 +17,7 @@ const callback = (error) => {
 
 const generateFields = (schema) => {
 	let fields = [];
-	generateFieldsInner(schema, fields, '', 0);
+	generateFieldsInner(schema, fields, '');
 
 	return fields;
 };
@@ -77,15 +77,15 @@ module.exports = {
 		try {
 			let toWrite = `
 ${AUTO_GENERATED}
+
+import Fhir${extend} from '../base';
+// import FhirDataTypeBuilder from '../utils'; // uncomment this line if needed for building generator functions
+
 /${ASTERISK}
 Resource: ${resourceName}
 Reference: ${reference}
 ${breakString(description, MAX_LINE_LENGTH)}
 ${ASTERISK}/
-
-
-import Fhir${extend} from './Fhir${extend}';
-// import FhirDataTypeBuilder from '../utils'; // uncomment this line if needed for building generator functions
 
 export default class ${resourceName}Resource extends Fhir${extend} {
 	// we have a couple generator functions that can be specified as needed
@@ -119,11 +119,7 @@ schema = ${JSON.stringify(schema, null, 4)};
 	generateFields: generateFields,
 };
 
-const generateFieldsInner = (schema, fields, rootName, nesting) => {
-	if (nesting >= NESTING) {
-		NESTING = nesting;
-	}
-
+const generateFieldsInner = (schema, fields, rootName) => {
 	let keys = Object.keys(schema);
 	for (let key of keys) {
 		let field = '';
@@ -149,8 +145,7 @@ const generateFieldsInner = (schema, fields, rootName, nesting) => {
 			generateFieldsInner(
 				schema[key],
 				fields,
-				buildParamNameString(rootName, rootName === '' ? '' : '_', key),
-				++nesting
+				buildParamNameString(rootName, rootName === '' ? '' : '_', key)
 			);
 		}
 		if (field !== '' && field.toUpperCase() !== 'RESOURCETYPE') {

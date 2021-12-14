@@ -1,103 +1,78 @@
-const axios = require('axios');
 const HTMLParser = require('node-html-parser');
 const SchemaGenerator = require('../processors/fhirResourceProcessor');
 const log = require('../utils/logging');
-const path = require('path');
 const config = require('config');
+const getSpecialCases = require('./fhirSpecialCaseFetcher').getSpecialCases;
 
 const FHIR_BASE_URL = config.http.baseUrl;
-const TIMEOUT = config.http.timeout;
-//const MULTIVALUE_REGEX = /\[{(?<value>[^}\/]*)}]*,\s*\/\/\s*(?<comment>[^"]*)\\r\\n)/
 
-const instance = axios.create({
-	baseURL: FHIR_BASE_URL,
-	timeout: TIMEOUT,
-	headers: { 'X-Requested-With': 'XMLHttpRequest' },
-	transformResponse: [(data) => data],
-});
+const DATATYPES_PAGE = config.http.dataTypes;
+const METADATATYPES_PAGE = config.http.metadataTypes;
 
-var dataTypePage, metaDataTypePage;
+var dataTypePage;
+var metadataTypePage;
 
-const hasData = () => {
-	return !!dataTypePage && !!metaDataTypePage;
-};
+module.exports = {
+	fetchAll: async (resources, dataTypes, metaDataTypes, specialCases) => {
+		resources = resources || resources.allResources;
+		dataTypes = dataTypes || resources.allDataTypes;
+		metaDataTypes = metaDataTypes || resources.allMetadataTypes;
+		specialCases = specialCases || resources.allSpecialCases;
+		let dataTypeSchemas = [],
+			resourceSchemas = [],
+			specialCaseSchemas = [],
+			result;
 
-// /**
-//  *
-//  * @returns {Object} An object containing data type and metadata type pages
-//  */
-// const fetchAllPages = async () => {
-// 	const result = {
-// 		dataTypesPage: null,
-// 		metaDataTypesPage: null,
-// 	};
-
-// 	try {
-// 		let response = await getDataTypesPage('/datatypes.html');
-// 		log.success('Retrieved data types');
-// 		result.dataTypesPage = response.data;
-// 	} catch (error) {
-// 		log.error(`Failed to fetch datatypes - Error: ${error.message}`);
-// 	}
-
-// 	try {
-// 		let responseTwo = await getDataTypesPage('/metadatatypes.html');
-// 		log.success('Retrieved metadata datatypes');
-// 		result.metaDataTypesPage = responseTwo.data;
-// 	} catch (error) {
-// 		log.error(`failed in fetchAllPages - Error: ${error.message}`);
-// 	}
-
-// 	return result;
-// };
-
-module.exports = async (resources, dataTypes, metaDataTypes) => {
-	resources = resources || resources.allResources;
-	dataTypes = dataTypes || resources.allDataTypes;
-	metaDataTypes = metaDataTypes || resources.allMetadataTypes;
-	let dataTypeSchemas = [],
-		resourceSchemas = [],
-		result;
-
-	for (let page of resources) {
-		try {
-			result = await getFhirPage(page);
-			resourceSchemas.push(result);
-		} catch (error) {
-			log.error(`Failed to fetch ${page} - Error: ${error.message}`);
+		for (let page of resources) {
+			try {
+				result = await getFhirPage(page);
+				resourceSchemas.push(result);
+			} catch (error) {
+				log.error(`Failed to fetch ${page} - Error: ${error.message}`);
+			}
 		}
-	}
 
-	for (let dataType of dataTypes) {
 		try {
-			result = await getDataType(dataType);
-			dataTypeSchemas.push({ name: dataType, schema: result });
-		} catch (error) {
-			log.error(`Failed to fetch ${dataType} - Error: ${error.message}`);
-		}
-	}
-
-	for (let metaDataType of metaDataTypes) {
-		try {
-			result = await getMetaDataType(metaDataType);
-			dataTypeSchemas.push({ name: metaDataType, schema: result });
+			result = await getSpecialCases(specialCases);
+			specialCaseSchemas = result;
 		} catch (error) {
 			log.error(
-				`Failed to fetch ${metaDataType} - Error: ${error.message}`
+				`Failed to fetch special cases - Error: ${error.message}`
 			);
 		}
-	}
 
-	return { resources: resourceSchemas, dataTypes: dataTypeSchemas };
+		for (let dataType of dataTypes) {
+			try {
+				result = await getDataType(dataType);
+				dataTypeSchemas.push({ name: dataType, schema: result });
+			} catch (error) {
+				log.error(
+					`Failed to fetch ${dataType} - Error: ${error.message}`
+				);
+			}
+		}
+
+		for (let metaDataType of metaDataTypes) {
+			try {
+				result = await getMetaDataType(metaDataType);
+				dataTypeSchemas.push({ name: metaDataType, schema: result });
+			} catch (error) {
+				log.error(
+					`Failed to fetch ${metaDataType} - Error: ${error.message}`
+				);
+			}
+		}
+
+		return {
+			resources: resourceSchemas,
+			dataTypes: dataTypeSchemas,
+			specialCases: specialCaseSchemas,
+		};
+	},
 };
 
-// const getDataTypesPage = async (page) => {
-// 	let response = instance.get(page);
-// 	return response;
-// };
-
 const getFhirPage = async (resourceName) => {
-	let response = await instance.get(`/${resourceName}.html`);
+	let response = await HTTP.get(`/${resourceName}.html`);
 	let data = HTMLParser.parse(response.data);
 	let child = HTMLParser.parse(
 		data.querySelector('#tabs-json').querySelector('#json-inner')
@@ -144,10 +119,9 @@ const getFhirPage = async (resourceName) => {
 	});
 };
 
-const processPageData = (response, dataType) => {
+const processPageData = (dataType, page) => {
 	try {
-		let data = HTMLParser.parse(response.data),
-			childOne = data.querySelector(`#tabs-${dataType}-json`),
+		let childOne = page.querySelector(`#tabs-${dataType}-json`),
 			child = HTMLParser.parse(
 				childOne.querySelector(`#json`).querySelector(`#json-inner`)
 					.childNodes[1].childNodes[0].innerText
@@ -165,8 +139,11 @@ const processPageData = (response, dataType) => {
 
 const getDataType = async (dataType) => {
 	try {
-		let response = await instance.get(`datatypes.html`);
-		return processPageData(response, dataType);
+		if (!dataTypePage) {
+			let response = await HTTP.get(DATATYPES_PAGE);
+			dataTypePage = HTMLParser.parse(response.data);
+		}
+		return processPageData(dataType, dataTypePage);
 	} catch (error) {
 		log.error(`Unable to fetch ${dataType} - Error: ${error.message}`);
 	}
@@ -174,11 +151,12 @@ const getDataType = async (dataType) => {
 
 const getMetaDataType = async (dataType) => {
 	try {
-		let response = await instance.get(`metadatatypes.html`);
-		return processPageData(response, dataType);
+		if (!metadataTypePage) {
+			let response = await HTTP.get(METADATATYPES_PAGE);
+			metadataTypePage = HTMLParser.parse(response.data);
+		}
+		return processPageData(dataType, metadataTypePage);
 	} catch (error) {
 		log.error(`Unable to fetch ${dataType} - Error: ${error.message}`);
 	}
 };
-
-const getPage = async (page) => {};

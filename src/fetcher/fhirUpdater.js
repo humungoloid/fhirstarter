@@ -2,22 +2,11 @@ const axios = require('axios');
 const HTMLParser = require('node-html-parser');
 const fs = require('fs').promises;
 const log = require('./logging');
-const config = require('./config');
 const path = require('path');
+const config = require('config');
 
 const maturities = path.resolve(__dirname, '../.fhirstarter/maturity.json');
-
-const FHIR_BASE_URL = `https://www.hl7.org/fhir`;
-//const MULTIVALUE_REGEX = /\[{(?<value>[^}\/]*)}]*,\s*\/\/\s*(?<comment>[^"]*)\\r\\n)/
-
-const verbose = true;
-
-const instance = axios.create({
-	baseURL: FHIR_BASE_URL,
-	timeout: 120000,
-	headers: { 'X-Requested-With': 'XMLHttpRequest' },
-	transformResponse: [(data) => data],
-});
+const RESOURCE_LIST_PAGE = config.http.resourceList;
 
 const readMaturities = () => {
 	let fileContents, fileContentsJson;
@@ -32,7 +21,7 @@ const readMaturities = () => {
 };
 
 const checkForUpdates = () => {
-	let response = await instance.get('resourcelist.html');
+	let response = await HTTP.get(RESOURCE_LIST_PAGE);
 	let data = HTMLParser.parse(response);
 	let child = data.querySelector();
 };

@@ -38,6 +38,10 @@ const dev = {
 		resourceList: 'resourcelist.html',
 		dataTypes: 'datatypes.html',
 		metadataTypes: 'metadatatypes.html',
+		dosage: 'dosage.html',
+		meta: 'resource.html#meta',
+		reference: 'references.html',
+		extension: 'extensibility.html',
 	},
 	logging: {
 		level: 'verbose',
@@ -47,8 +51,11 @@ const dev = {
 	},
 };
 
+const test = dev;
+
 const config = {
 	dev,
+	test,
 };
 
 module.exports = config['dev'];

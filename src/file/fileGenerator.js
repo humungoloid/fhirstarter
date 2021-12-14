@@ -1,10 +1,12 @@
 const log = require('../utils/logging');
+const config = require('config');
 const buildDataTypeBuilderFile = require('./dataTypeBuilderFileGenerator');
 const buildDataTypeFile = require('./dataTypeFileGenerator');
 const buildResourceIndex =
 	require('./fhirResourceFileGenerator').buildResourceIndex;
 const buildResourceFile =
 	require('./fhirResourceFileGenerator').buildResourceFile;
+const buildSpecialCasesFiles = require('./fhirSpecialCaseBuilderFileGenerator');
 const makeDirs = require('../utils/generatorUtils').makeDirs;
 
 module.exports = {
@@ -14,7 +16,12 @@ module.exports = {
 		}
 	},
 
-	buildFiles: async (resources, dataTypePages, quantityTypes) => {
+	buildFiles: async (
+		resources,
+		dataTypePages,
+		quantityTypes,
+		specialCases
+	) => {
 		await makeDirs();
 		log.info('Writing files...');
 		try {
@@ -30,6 +37,9 @@ module.exports = {
 				for (let resource of resources) {
 					buildResourceFile(resource);
 				}
+			}
+			if (specialCases && specialCases.length > 0) {
+				buildSpecialCasesFiles(specialCases);
 			}
 		} finally {
 			log.info('Finished writing files.');

@@ -24,7 +24,7 @@ const processJson = (jsonToProcess, resourceName) => {
 
 	if (resourceName === 'SubstanceSpecification') {
 		// special case; for some reason the json is all jacked up for SubstanceSpecification...
-		newJson = {
+		newJson = JSON.stringify({
 			resourceType: 'SubstanceSpecification',
 			identifier: '__Identifier__',
 			type: '__CodeableConcept__',
@@ -35,7 +35,7 @@ const processJson = (jsonToProcess, resourceName) => {
 			polymer: '__Reference(SubstancePolymer)__',
 			protein: '__Reference(SubstanceProtein)__',
 			sourceMaterial: '__Reference(SubstanceSourceMaterial)__',
-		};
+		});
 	}
 
 	return JSON.parse(newJson);
