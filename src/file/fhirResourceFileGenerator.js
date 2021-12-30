@@ -3,6 +3,7 @@ const config = require('config');
 const path = require('path');
 const log = require('../utils/logging');
 const breakString = require('../utils/generatorUtils').breakString;
+const camelCase = require('../utils/generatorUtils').camelCase;
 
 const RESOURCES_DIR = config.output.dir.resource;
 const DO_NOT_EXTEND_DOMAINRESOURCE = config.processing.extendOnlyBaseResource;
@@ -73,12 +74,12 @@ module.exports = {
 			description = json.description,
 			filename = `${resourceName}Resource` || '__failed';
 		let fields = generateFields(schema);
-
+		let schemaName = camelCase(`${resourceName}Schema`);
 		try {
 			let toWrite = `
 ${AUTO_GENERATED}
 
-import Fhir${extend} from '../base';
+import { Fhir${extend} } from '../base';
 // import FhirDataTypeBuilder from '../utils'; // uncomment this line if needed for building generator functions
 
 /${ASTERISK}
@@ -88,20 +89,16 @@ ${breakString(description, MAX_LINE_LENGTH)}
 ${ASTERISK}/
 
 export default class ${resourceName}Resource extends Fhir${extend} {
-	// we have a couple generator functions that can be specified as needed
-	// mostly though we can get away with using the generator in the super class
-	// if null is passed to super.generateJson, it will default to the base method
-	jsonGenerator = null; // (rawData, schema) => json
-	fhirGenerator = null; // (rawData, schema) => fhir
 ${fields.join(' ')}
+
+${schemaName} = ${JSON.stringify(schema, null, 4)};
+
 constructor(resourceString) {
 	super(resourceString);
+	this.schema = ${schemaName};
+	this.populateFields();
 }
 
-generateJson = () => this.json = this.json || super.generateJson(jsonGenerator);
-generateFhir = () => this.fhir = this.fhir || super.generateJson(fhirGenerator);
-
-schema = ${JSON.stringify(schema, null, 4)};
 }
 	`;
 			let file = path.resolve(RESOURCES_DIR, `${filename}.js`);
