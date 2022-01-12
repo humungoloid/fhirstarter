@@ -2,10 +2,7 @@ const log = require('../utils/logging');
 const config = require('config');
 const buildDataTypeBuilderFile = require('./dataTypeBuilderFileGenerator');
 const buildDataTypeFile = require('./dataTypeFileGenerator');
-const buildResourceIndex =
-	require('./fhirResourceFileGenerator').buildResourceIndex;
-const buildResourceFile =
-	require('./fhirResourceFileGenerator').buildResourceFile;
+const ResourceGenerator = require('./fhirResourceFileGenerator');
 const buildSpecialCasesFiles = require('./fhirSpecialCaseBuilderFileGenerator');
 const makeDirs = require('../utils/generatorUtils').makeDirs;
 
@@ -32,10 +29,16 @@ module.exports = {
 			dataTypePages &&
 				dataTypePages.length > 0 &&
 				buildDataTypeFile(dataTypePages, quantityTypes);
-			resources && resources.length > 0 && buildResourceIndex(resources);
+			resources &&
+				resources.length > 0 &&
+				ResourceGenerator.buildResourceIndex(resources);
+			let schemaArray = resources.map((elem) => JSON.parse(elem).schema);
+			schemaArray &&
+				schemaArray.length > 0 &&
+				(await ResourceGenerator.buildSchemaFile(schemaArray));
 			if (resources && resources.length > 0) {
 				for (let resource of resources) {
-					buildResourceFile(resource);
+					ResourceGenerator.buildResourceFile(resource);
 				}
 			}
 			if (specialCases && specialCases.length > 0) {

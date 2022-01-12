@@ -9,6 +9,9 @@
 		"start:pretty": "yarn start && yarn prettier --write output/**",
 		"test": "echo 'test'"
 	},
+	"np": {
+		"yarn": false
+	},
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/humungoloid/fhirstarter.git"

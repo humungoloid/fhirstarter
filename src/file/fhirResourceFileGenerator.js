@@ -24,9 +24,14 @@ const generateFields = (schema) => {
 };
 
 module.exports = {
+	/**
+	 * Builds an index.js file used to export all of the created FHIR resource classes
+	 * @param {Array} resources An array of resource names
+	 * @returns 0 if successful, 1 otherwise.
+	 */
 	buildResourceIndex: async (resources) => {
 		if (resources.length === 0) {
-			return;
+			return 1;
 		}
 		let resourceList = '',
 			importAll = `
@@ -61,8 +66,13 @@ module.exports = {
 			);
 			FAILURES.push(filename);
 		}
+		return 0;
 	},
 
+	/**
+	 * Builds a .js file containing a class that represents the provided FHIR resource.
+	 * @param {*} resource The name of the resource whose file is to be generated
+	 */
 	buildResourceFile: async (resource) => {
 		let json = JSON.parse(resource),
 			schema = json.schema,
@@ -100,6 +110,46 @@ constructor(resourceString) {
 }
 
 }
+	`;
+			let file = path.resolve(RESOURCES_DIR, `${filename}.js`);
+			log.info(`File: ${file}`);
+			await fs.writeFile(file, toWrite, { flag: 'w' }, callback);
+			log.success(`Successfully wrote file ${filename}.js`);
+		} catch (error) {
+			log.error(
+				`Failed to write file ${filename}.js - Error: ${error.message}`
+			);
+			FAILURES.push(filename);
+		}
+	},
+
+	/**
+	 * Writes a file containing the schemas for all of the different FHIR resource types.
+	 * @param {Array} schemaArray An array of JSON objects representing FHIR resource schema
+	 */
+	buildSchemaFile: async (schemaArray) => {
+		let filename = 'FhirSchemas';
+		try {
+			let schemaStrings = schemaArray
+				.map(
+					(elem) =>
+						`${elem.resourceType}: \`${JSON.stringify(
+							elem,
+							null,
+							4
+						)}\``
+				)
+				.join(',');
+
+			let toWrite = `
+${AUTO_GENERATED}
+
+const fhirSchemas = 
+{
+	${schemaStrings}
+}
+
+export default fhirSchemas;
 	`;
 			let file = path.resolve(RESOURCES_DIR, `${filename}.js`);
 			log.info(`File: ${file}`);
