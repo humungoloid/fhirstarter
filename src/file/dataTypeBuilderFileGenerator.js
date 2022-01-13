@@ -5,7 +5,10 @@ const log = require('../utils/logging');
 const camelCase = require('../utils/generatorUtils').camelCase;
 
 const UTILS_DIR = config.output.dir.utils;
+const DATATYPES_DIR = config.output.dir.datatypes;
 const MAX_LINE_LENGTH = config.output.maxLineLength;
+
+const VALIDATE_ARGS_NAME = 'validateArgs';
 
 var comments = '';
 var globalJson;
@@ -15,6 +18,9 @@ module.exports = async (dataTypes, quantityTypes) => {
 	if (dataTypes.length === 0) {
 		return;
 	}
+
+	await buildValidateArgsFunctionFile();
+	await buildPrimitiveTypesFile();
 
 	let quantitySchema = dataTypes.find(
 		(elem) => elem.name === 'Quantity'
@@ -44,9 +50,10 @@ module.exports = async (dataTypes, quantityTypes) => {
 		// and a function tha we export on its own
 		let newFunc = `
 ${comments}
-const ${functionName} = ({${params.join(', ')}}) => {
-	let schema = getSchema('${dataType.name}');
-	if (validateArgs(schema, arguments[[0]])) {
+const ${functionName} = (args) => {
+	const {${params.join(', ')}} = args;
+	const schema = getSchema('${dataType.name}');
+	if (validateArgs(schema, args, Object.keys(args))) {
 		return ${JSON.stringify(globalJson).replace(/"/g, '')}
 	}
 }`;
@@ -73,7 +80,8 @@ const ${functionName} = ({${params.join(', ')}}) => {
 	// finally, write the file
 	let writeToFile = `
 ${AUTO_GENERATED}
-import validateArgs from './validateArgs';
+
+import ${VALIDATE_ARGS_NAME} from './${VALIDATE_ARGS_NAME}';
 import getSchema from '../datatypes';
 export default class FhirDataTypeBuilder {
 dict = {${dictEntries}}
@@ -137,7 +145,7 @@ ${importStr}
 ${exportStr}
 `;
 	try {
-		let file = path.resolve(UTILS_DIR, `index.js`);
+		let file = path.resolve(UTILS_DIR, `${filename}.js`);
 		log.info(`Writing file ${filename}.js`);
 		await fs.writeFile(file, writeToFile, { flag: 'w' }, callback);
 		log.success(`Successfully wrote file ${filename}.js`);
@@ -148,6 +156,60 @@ ${exportStr}
 		FAILURES.push(filename);
 	}
 };
+
+/**
+ * Creates a file that contains an argument validation function for the data type builders
+ */
+const buildValidateArgsFunctionFile = async (func) => {
+	func =
+		func ||
+		DEFAULT_ARG_VALIDATOR.replace(
+			/<__validateArgs>/g,
+			VALIDATE_ARGS_NAME
+		).replace(/\\/g, '\\');
+	let filename = VALIDATE_ARGS_NAME,
+		toWrite = `
+${AUTO_GENERATED}
+${func}
+
+export default ${VALIDATE_ARGS_NAME}
+	`;
+	try {
+		let file = path.resolve(UTILS_DIR, `${filename}.js`);
+		log.info(`Writing file ${filename}.js`);
+		await fs.writeFile(file, toWrite, { flag: 'w' }, callback);
+		log.success(`Successfully wrote file ${filename}.js`);
+	} catch (error) {
+		log.error(
+			`Failed to write file ${filename}.js - Error: ${error.message}`
+		);
+		FAILURES.push(filename);
+	}
+};
+
+/**
+ * Creates a file that contains an argument validation function for the data type builders
+ */
+const buildPrimitiveTypesFile = async (func) => {
+	func = func || DEFAULT_PRIMITIVE_TYPES.replace(/\\/g, '\\');
+	let filename = 'primitiveTypes',
+		toWrite = `
+${AUTO_GENERATED}
+${func}
+	`;
+	try {
+		let file = path.resolve(DATATYPES_DIR, `${filename}.js`);
+		log.info(`Writing file ${filename}.js`);
+		await fs.writeFile(file, toWrite, { flag: 'w' }, callback);
+		log.success(`Successfully wrote file ${filename}.js`);
+	} catch (error) {
+		log.error(
+			`Failed to write file ${filename}.js - Error: ${error.message}`
+		);
+		FAILURES.push(filename);
+	}
+};
+
 /**
  * A recursive method that generates a json object with function parameters assigned to its properties
  * @param {Object} obj The object to process

@@ -32,6 +32,16 @@ module.exports = {
 			}
 		}
 
+		resourceSchemas.push(
+			JSON.stringify({
+				name: 'ImagingStudyWorklist',
+				description:
+					'RamSoft proprietary resource used to enhance worklist performance',
+				reference: 'N/A',
+				schema: IMAGING_STUDY_WORKLIST_SCHEMA,
+			})
+		);
+
 		try {
 			result = await getSpecialCases(specialCases);
 			specialCaseSchemas = result;

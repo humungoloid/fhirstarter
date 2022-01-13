@@ -44,29 +44,33 @@ module.exports = async (resources) => {
 				imports.push(`import validateArgs from './validateArgs'`);
 				imports.push(`import getSchema from '../datatypes';`);
 				addIn = `
-				let schema = getSchema('${name}');
-if (validateArgs(schema, arguments[0])) {
+				const {${params.join(', ')}} = args;
+				const schema = getSchema('${name}');
+if (validateArgs(schema, args, Object.keys(args))) {
 	${addIn}
 	return ${JSON.stringify(globalJson).replace(/"/g, '')}
 }`;
 				break;
 			case 'Extension':
-				paramsOne = 'url, ';
 				addIn = `
-let args = arguments[1];
-let argsKeys = Object.keys(args);
+const {url, ${params.filter((elem) => elem !== 'url').join(', ')}} = args;
+// we can only include one, so just include the first one
+let argsKey = Object.keys(args)[1];
 
-if (argsKeys.length === 1) {
-	return JSON.parse(\`{"url":"\${url}", "\${argsKeys}": "\${args[argsKeys].value}"}\`);
+if (argsKey) {
+	return JSON.parse(\`{"url":"\${url}", "\${argsKey}": "\${args[argsKey]}"}\`);
 }
 `;
 				break;
 		}
 		newFunc = `
 			${comments}
-			const ${functionName} = (${paramsOne}{${params.join(', ')}} = {}) => {
+			const ${functionName} = (args) => {
+				
 				${addIn};
-			}`;
+			};
+			
+			export default ${functionName}`;
 
 		if (newFunc.includes('__')) {
 			needToCheck.push(functionName);

@@ -48,6 +48,7 @@ const dev = {
 	},
 	processing: {
 		extendOnlyBaseResource: ['Bundle', 'Parameters', 'Binary'],
+		useImagingStudyWorklistResource: true,
 	},
 };
 

@@ -1,20 +1,25 @@
-const INTEGER_REGEX = /[0]|[-+]?[1-9]\d*/;
-const STRING_REGEX = /[ \r\n\t\S]+/;
-const DECIMAL_REGEX = /-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?/;
-const BASE64BINARY_REGEX = /(\s*([0-9a-zA-Z\+\=]){4}\s*)+/;
+/**
+ * Remember to escape backslashes :)
+ */
+
+module.exports = `
+const INTEGER_REGEX = /[0]|[-+]?[1-9]\\d*/;
+const STRING_REGEX = /[ \\r\\n\\t\\S]+/;
+const DECIMAL_REGEX = /-?(0|[1-9]\\d*)(\\.\\d+)?([eE][+-]?\\d+)?/;
+const BASE64BINARY_REGEX = /(\\s*([0-9a-zA-Z\\+\\=]){4}\\s*)+/;
 const INSTANT_REGEX =
-	/(\d(\d(\d[1-9]|[1-9]0)|[1-9]00)|[1-9]000)-(0[1-9]|1[0-2])-(0[1-9]|[1-2]\d|3[0-1])T([01]\d|2[0-3]):[0-5]\d:([0-5]\d|60)(\.\d+)?(Z|(\+|-)((0\d|1[0-3]):[0-5]\d|14:00))/;
+	/(\\d(\\d(\\d[1-9]|[1-9]0)|[1-9]00)|[1-9]000)-(0[1-9]|1[0-2])-(0[1-9]|[1-2]\\d|3[0-1])T([01]\\d|2[0-3]):[0-5]\\d:([0-5]\\d|60)(\\.\\d+)?(Z|(\\+|-)((0\\d|1[0-3]):[0-5]\\d|14:00))/;
 const DATE_REGEX =
-	/(\d(\d(\d[1-9]|[1-9]0)|[1-9]00)|[1-9]000)(-(0[1-9]|1[0-2])(-(0[1-9]|[1-2]\d|3[0-1]))?)?/;
+	/(\\d(\\d(\\d[1-9]|[1-9]0)|[1-9]00)|[1-9]000)(-(0[1-9]|1[0-2])(-(0[1-9]|[1-2]\\d|3[0-1]))?)?/;
 const DATETIME_REGEX =
-	/(\d(\d(\d[1-9]|[1-9]0)|[1-9]00)|[1-9]000)(-(0[1-9]|1[0-2])(-(0[1-9]|[1-2]\d|3[0-1])(T([01]\d|2[0-3]):[0-5]\d:([0-5]\d|60)(\.\d+)?(Z|(\+|-)((0\d|1[0-3]):[0-5]\d|14:00)))?)?)?/;
-const TIME_REGEX = /([01]\d|2[0-3]):[0-5]\d:([0-5]\d|60)(\.\d+)?/;
-const CODE_REGEX = /[^\s]+(\s[^\s]+)*/;
-const OID_REGEX = /urn:oid:[0-2](\.(0|[1-9]\d*))+/;
-const ID_REGEX = /[A-Za-z0-9\-\.]{1,64}/;
-const MARKDOWN_REGEX = /\s*(\S|\s)*/;
-const UNSIGNEDINT_REGEX = /[0]|([1-9]\d*)/;
-const POSITIVEINT_REGEX = /+?[1-9]\d*/;
+	/(\\d(\\d(\\d[1-9]|[1-9]0)|[1-9]00)|[1-9]000)(-(0[1-9]|1[0-2])(-(0[1-9]|[1-2]\\d|3[0-1])(T([01]\\d|2[0-3]):[0-5]\\d:([0-5]\\d|60)(\\.\\d+)?(Z|(\\+|-)((0\\d|1[0-3]):[0-5]\\d|14:00)))?)?)?/;
+const TIME_REGEX = /([01]\\d|2[0-3]):[0-5]\\d:([0-5]\\d|60)(\\.\\d+)?/;
+const CODE_REGEX = /[^\\s]+(\\s[^\\s]+)*/;
+const OID_REGEX = /urn:oid:[0-2](\\.(0|[1-9]\\d*))+/;
+const ID_REGEX = /[A-Za-z0-9\\-\\.]{1,64}/;
+const MARKDOWN_REGEX = /\\s*(\\S|\\s)*/;
+const UNSIGNEDINT_REGEX = /[0]|([1-9]\\d*)/;
+const POSITIVEINT_REGEX = /+?[1-9]\\d*/;
 
 const primitiveTypes = {
 	boolean: {
@@ -37,7 +42,7 @@ const primitiveTypes = {
 			val !== Number.NEGATIVE_INFINITY &&
 			!Number.isNaN(val),
 	},
-	uri: { type: 'string', regex: /\S*/ },
+	uri: { type: 'string', regex: /\\S*/ },
 	url: { type: 'string' },
 	canonical: { type: 'string' },
 	base64Binary: { type: 'string', regex: BASE64BINARY_REGEX },
@@ -85,6 +90,5 @@ for (let key of Object.keys(primitiveTypes)) {
 	}
 }
 
-module.exports = primitiveTypes;
-
-// export default primitiveTypes;
+export default primitiveTypes;
+`;
