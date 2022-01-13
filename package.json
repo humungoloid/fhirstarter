@@ -1,6 +1,6 @@
 {
 	"name": "@capm_diealone/fhirstarter",
-	"version": "1.3.0",
+	"version": "1.4.0",
 	"packageManager": "yarn@3.1.1",
 	"description": "A tool that automatically fetches FHIR resource json descriptions, parses them, and converts them to json objects",
 	"main": "src/index.js",
