@@ -31,9 +31,11 @@ export const ${dataType.name} = ${JSON.stringify(dataType.schema)
 	}
 
 	let getSchemaFunc = `
-export default getSchema = (schema) => {
+const getSchema = (schema) => {
 	return dict[\`\${schema}Const\`]
 }
+
+export default getSchema;
 `;
 
 	let quantityTypesString = `
@@ -75,8 +77,10 @@ const buildDataTypeIndex = async (filename) => {
 	let writeToFile = `
 ${AUTO_GENERATED}
 import getSchema from './${filename}';
+import primitiveTypes from './primitiveTypes';
 
 export * from './${filename}';
+export { primitiveTypes };
 export default getSchema;
 `;
 	try {

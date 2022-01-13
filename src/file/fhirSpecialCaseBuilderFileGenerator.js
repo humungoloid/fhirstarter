@@ -21,12 +21,15 @@ module.exports = async (resources) => {
 		return;
 	}
 
+	let returnFiles = [];
+
 	for (let resourceStr of resources) {
 		comments = '';
 		let resource = resourceStr.schema,
 			name = resourceStr.name,
 			filename = `fhir${name}Resource`,
 			params = [];
+
 		globalJson = resource;
 		let newParams = processObjectForDataTypeBuilders(resource);
 		params.push(...newParams);
@@ -35,14 +38,13 @@ module.exports = async (resources) => {
 			imports = [],
 			addIn = '',
 			paramsOne = '';
-		// and a function tha we export on its own
 
+		imports.push(`import getSchema from '../datatypes';`);
 		switch (name) {
 			case 'Reference':
 			case 'Dosage':
 			case 'Meta':
-				imports.push(`import validateArgs from './validateArgs'`);
-				imports.push(`import getSchema from '../datatypes';`);
+				imports.push(`import {validateArgs} from './validateArgs'`);
 				addIn = `
 				const {${params.join(', ')}} = args;
 				const schema = getSchema('${name}');
@@ -52,25 +54,43 @@ if (validateArgs(schema, args, Object.keys(args))) {
 }`;
 				break;
 			case 'Extension':
+				imports.push(
+					`import {validateArgs, validatePrimitive, isPrimitive} from './validateArgs'`
+				);
 				addIn = `
 const {url, ${params.filter((elem) => elem !== 'url').join(', ')}} = args;
 // we can only include one, so just include the first one
-let argsKey = Object.keys(args)[1];
+let argsKey = Object.keys(args)[1],
+		validated = validatePrimitive('url', url),
+		schema = argsKey.slice('value'.length);
 
-if (argsKey) {
-	return JSON.parse(\`{"url":"\${url}", "\${argsKey}": "\${args[argsKey]}"}\`);
-}
+	if (isPrimitive(schema.charAt(0).toLowerCase() + schema.slice(1))) {
+		validated =
+			validated &&
+			validatePrimitive(
+				schema.charAt(0).toLowerCase() + schema.slice(1),
+				args[argsKey]
+			);
+	} else {
+		validated =
+			validated &&
+			validateArgs(
+				getSchema(schema),
+				args[argsKey],
+				Object.keys[args[argsKey]]
+			);
+	}
+	if (validated) {
+		return JSON.parse(\`{"url":"\${url}", "\${argsKey}": "\${args[argsKey]}"}\`);
+	}
 `;
 				break;
 		}
 		newFunc = `
 			${comments}
 			const ${functionName} = (args) => {
-				
 				${addIn};
-			};
-			
-			export default ${functionName}`;
+			};`;
 
 		if (newFunc.includes('__')) {
 			needToCheck.push(functionName);
@@ -83,11 +103,13 @@ if (argsKey) {
 				: '';
 		log.info(`Finished building functions.`);
 		log.warning(`${checkString}`);
-
+		returnFiles.push({ name: name, filename: filename });
 		let writeToFile = `
-			${AUTO_GENERATED}
-			${imports.join(';')}
-			${newFunc}`;
+${AUTO_GENERATED}
+${imports.join(';')}
+${newFunc}
+
+export default ${functionName}`;
 		try {
 			let file = path.resolve(UTILS_DIR, `${filename}.js`);
 			log.info(`Writing file ${filename}.js`);
@@ -100,6 +122,8 @@ if (argsKey) {
 			FAILURES.push(filename);
 		}
 	}
+	/* End of for loop */
+	return returnFiles;
 };
 
 const callback = (error) => {

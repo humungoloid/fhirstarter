@@ -2,6 +2,7 @@ const axios = require('axios');
 const HTMLParser = require('node-html-parser');
 const SchemaGenerator = require('../processors/fhirResourceProcessor');
 const log = require('../utils/logging');
+const imagingStudyWorklistExample = require('./../data/imagingStudyWorklistExample');
 const config = require('config');
 
 module.exports = {
@@ -24,20 +25,27 @@ module.exports = {
 };
 
 const getExample = async (resource) => {
-	let page = await HTTP.get(`${resource}-examples.html`);
-	let examples = HTMLParser.parse(page.data)
-		.querySelector('.list')
-		.querySelectorAll('tr')[1]
-		.querySelectorAll('td')[3]
-		.querySelector('a').attributes.href;
-	let response = await HTTP.get(examples);
-	let data = HTMLParser.parse(response.data);
-	let parsed = data
-		.querySelector('.example')
-		.querySelector('pre', '#json')
-		.innerText.replace(/&quot;/g, '"');
+	let result;
+	if (resource === 'ImagingStudyWorklist') {
+		result = JSON.stringify(
+			JSON.parse(imagingStudyWorklistExample.replace(/\s/g, ''))
+		);
+	} else {
+		let page = await HTTP.get(`${resource}-examples.html`);
+		let examples = HTMLParser.parse(page.data)
+			.querySelector('.list')
+			.querySelectorAll('tr')[1]
+			.querySelectorAll('td')[3]
+			.querySelector('a').attributes.href;
+		let response = await HTTP.get(examples);
+		let data = HTMLParser.parse(response.data);
+		let parsed = data
+			.querySelector('.example')
+			.querySelector('pre', '#json')
+			.innerText.replace(/&quot;/g, '"');
 
-	let result = JSON.stringify(JSON.parse(parsed));
+		result = JSON.stringify(JSON.parse(parsed));
+	}
 
 	return {
 		name: resource,

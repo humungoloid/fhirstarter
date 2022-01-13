@@ -31,16 +31,16 @@ const generateUnitTestFile = async (resource) => {
 
 	for (let field of Object.keys(obj)) {
 		if (typeof obj[field] === 'string') {
-			expects += `expect(resource['${field}']).toEqual('${obj[field]}');`;
+			expects += `expect(resource['${field}']).toEqual(\`${obj[field]}\`);`;
 		} else if (
 			obj[field] instanceof Array &&
 			typeof obj[field][0] === 'string'
 		) {
-			expects += `expect(resource[${field}][0]).toEqual('${obj[field][0]}');`;
+			expects += `expect(resource[${field}][0]).toEqual(\`${obj[field][0]}\`);`;
 		} else if (!(obj[field] instanceof Array)) {
-			expects += `expect(JSON.stringify(resource['${field}']).replace(/\\s\\t\\r\\n/g, '"')).toEqual('${JSON.stringify(
+			expects += `expect(JSON.stringify(resource['${field}']).replace(/\\s\\t\\r\\n/g, '"')).toEqual(\`${JSON.stringify(
 				obj[field]
-			).replace(/\\s\\t\\r\\n/g, '"')}');`;
+			).replace(/\\s\\t\\r\\n/g, '"')}\`);`;
 		}
 	}
 	let writeToFile = `

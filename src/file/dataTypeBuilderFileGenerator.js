@@ -14,7 +14,7 @@ var comments = '';
 var globalJson;
 const needToCheck = [];
 
-module.exports = async (dataTypes, quantityTypes) => {
+module.exports = async (dataTypes, quantityTypes, importedResources) => {
 	if (dataTypes.length === 0) {
 		return;
 	}
@@ -32,7 +32,7 @@ module.exports = async (dataTypes, quantityTypes) => {
 	}));
 
 	let writeFuncs = ``,
-		writeStatics = ``,
+		writeConsts = ``,
 		filename = 'fhirDataTypeBuilder',
 		dictEntries = '',
 		exports = [];
@@ -44,10 +44,10 @@ module.exports = async (dataTypes, quantityTypes) => {
 		params.push(...newParams);
 		let functionName = `build${dataType.name}Func`,
 			functionNameExport = `build${dataType.name}`,
-			newStatic = `static ${functionNameExport} = ${functionName};`;
+			newConst = `const ${functionNameExport} = ${functionName};`;
 		dictEntries += `${dataType.name}: ${functionNameExport},`;
 
-		// and a function tha we export on its own
+		// and a function that we export on its own
 		let newFunc = `
 ${comments}
 const ${functionName} = (args) => {
@@ -58,13 +58,24 @@ const ${functionName} = (args) => {
 	}
 }`;
 		writeFuncs += newFunc;
-		writeStatics += newStatic;
+		writeConsts += newConst;
 		exports.push(functionNameExport);
 
 		if (newFunc.includes('__')) {
 			needToCheck.push(functionName);
 		}
 		comments = '';
+	}
+	/* End of for loop */
+
+	let imports = ``;
+	for (let resource of importedResources) {
+		let importFilename =
+			resource.filename || `fhir${resource.name}Resource`;
+		imports += `import build${resource.name}Func from './${importFilename}';`;
+		dictEntries += `${resource.name}: build${resource.name},`;
+		writeConsts += `const build${resource.name} = build${resource.name}Func;`;
+		exports.push(`build${resource.name}`);
 	}
 
 	let checkString =
@@ -83,8 +94,11 @@ ${AUTO_GENERATED}
 
 import ${VALIDATE_ARGS_NAME} from './${VALIDATE_ARGS_NAME}';
 import getSchema from '../datatypes';
-export default class FhirDataTypeBuilder {
+${imports}
+${writeFuncs}
+${writeConsts}
 dict = {${dictEntries}}
+export default class FhirDataTypeBuilder {
 
 static getBuilderFunction = (resource) => {
 	return dict[resource];
@@ -94,15 +108,15 @@ static buildDataType = (resource, ...args) => {
 	return dict[resource](...args);
 }
 
-${writeStatics}
+
 }
 
-${writeFuncs}
+
 export {${exports.map(exportMapper).join(', ')}};
 `;
 
 	try {
-		await buildUtilsIndex(exports, filename);
+		await buildUtilsIndex(exports, filename, imports);
 	} catch (error) {
 		log.error(
 			`failed to write index file for resource type builders - Error: ${error.message}`
@@ -128,7 +142,7 @@ const callback = (error) => {
 	}
 };
 
-const buildUtilsIndex = async (functionNames, importFrom) => {
+const buildUtilsIndex = async (functionNames, importFrom, imports) => {
 	let importStr = `
 import FhirDataTypeBuilder, {
 ${functionNames.join(', ')}
@@ -171,8 +185,6 @@ const buildValidateArgsFunctionFile = async (func) => {
 		toWrite = `
 ${AUTO_GENERATED}
 ${func}
-
-export default ${VALIDATE_ARGS_NAME}
 	`;
 	try {
 		let file = path.resolve(UTILS_DIR, `${filename}.js`);

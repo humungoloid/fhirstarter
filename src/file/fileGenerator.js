@@ -20,15 +20,15 @@ module.exports = {
 		specialCases
 	) => {
 		await makeDirs();
+		let specialCasesFiles;
 		log.info('Writing files...');
 		try {
 			dataTypePages &&
 				dataTypePages.length > 0 &&
-				buildDataTypeBuilderFile(dataTypePages, quantityTypes);
-
-			dataTypePages &&
-				dataTypePages.length > 0 &&
-				buildDataTypeFile(dataTypePages, quantityTypes);
+				buildDataTypeFile(
+					dataTypePages.concat(specialCases),
+					quantityTypes
+				);
 			resources &&
 				resources.length > 0 &&
 				ResourceGenerator.buildResourceIndex(resources);
@@ -42,8 +42,16 @@ module.exports = {
 				}
 			}
 			if (specialCases && specialCases.length > 0) {
-				buildSpecialCasesFiles(specialCases);
+				specialCasesFiles = await buildSpecialCasesFiles(specialCases);
 			}
+
+			dataTypePages &&
+				dataTypePages.length > 0 &&
+				buildDataTypeBuilderFile(
+					dataTypePages,
+					quantityTypes,
+					specialCasesFiles
+				);
 		} finally {
 			log.info('Finished writing files.');
 			let failuresString =

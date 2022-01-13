@@ -101,8 +101,6 @@ ${ASTERISK}/
 export default class ${resourceName}Resource extends Fhir${extend} {
 ${fields.join(' ')}
 
-${schemaName} = ${JSON.stringify(schema, null, 4)};
-
 constructor(resourceString) {
 	super(resourceString);
 	this.schema = ${schemaName};
@@ -110,6 +108,7 @@ constructor(resourceString) {
 }
 
 }
+const ${schemaName} = ${JSON.stringify(schema, null, 4)};
 	`;
 			let file = path.resolve(RESOURCES_DIR, `${filename}.js`);
 			log.info(`File: ${file}`);
