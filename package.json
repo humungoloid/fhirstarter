@@ -6,7 +6,9 @@
 	"main": "src/index.js",
 	"scripts": {
 		"start": "node .",
+		"start:clean": "node . --clean",
 		"start:pretty": "yarn start && yarn prettier --write output/**",
+		"start:clean:pretty": "yarn start:clean && yarn prettier --write output/**",
 		"test": "echo 'test'"
 	},
 	"np": {

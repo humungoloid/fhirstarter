@@ -6,8 +6,10 @@ const handlePages = require('./fetcher/fhirJsonFetcher');
 const FileGenerator = require('./file/fileGenerator');
 const resources = require('./data/resources');
 const fhirResourceUnitTestFileGenerator = require('./file/fhirResourceUnitTestFileGenerator');
+const handleArgs = require('./utils/handleArgs');
 
-(async function () {
+(async function (args) {
+	handleArgs(args);
 	try {
 		let result = await handlePages.fetchAll(
 			resources.allResources,
@@ -31,4 +33,4 @@ const fhirResourceUnitTestFileGenerator = require('./file/fhirResourceUnitTestFi
 	} catch (error) {
 		log.error(`Failed - Error: ${error.message}`);
 	}
-})();
+})(process.argv);

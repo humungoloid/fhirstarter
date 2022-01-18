@@ -10,8 +10,6 @@ const ASTERISK = '*'.repeat(MAX_LINE_LENGTH);
 
 const camelCase = require('../utils/generatorUtils').camelCase;
 
-const UTILS_DIR = config.output.dir.utils;
-
 var comments = '';
 var globalJson;
 const needToCheck = [];
@@ -39,43 +37,40 @@ module.exports = async (resources) => {
 			addIn = '',
 			paramsOne = '';
 
-		imports.push(`import getSchema from '../datatypes';`);
+		imports.push(`import * as datatypes from '../datatypes'`);
+		imports.push(`import * as validateArgs from './validateArgs'`);
 		switch (name) {
 			case 'Reference':
 			case 'Dosage':
 			case 'Meta':
-				imports.push(`import {validateArgs} from './validateArgs'`);
 				addIn = `
 				const {${params.join(', ')}} = args;
-				const schema = getSchema('${name}');
-if (validateArgs(schema, args, Object.keys(args))) {
+				const schema = datatypes.getSchema('${name}');
+if (validateArgs.validateArgs(schema, args, Object.keys(args))) {
 	${addIn}
 	return ${JSON.stringify(globalJson).replace(/"/g, '')}
 }`;
 				break;
 			case 'Extension':
-				imports.push(
-					`import {validateArgs, validatePrimitive, isPrimitive} from './validateArgs'`
-				);
 				addIn = `
 const {url, ${params.filter((elem) => elem !== 'url').join(', ')}} = args;
 // we can only include one, so just include the first one
 let argsKey = Object.keys(args)[1],
-		validated = validatePrimitive('url', url),
+		validated = validateArgs.validatePrimitive('url', url),
 		schema = argsKey.slice('value'.length);
 
-	if (isPrimitive(schema.charAt(0).toLowerCase() + schema.slice(1))) {
+	if (datatypes.isPrimitive(schema.charAt(0).toLowerCase() + schema.slice(1))) {
 		validated =
 			validated &&
-			validatePrimitive(
+			validateArgs.validatePrimitive(
 				schema.charAt(0).toLowerCase() + schema.slice(1),
 				args[argsKey]
 			);
 	} else {
 		validated =
 			validated &&
-			validateArgs(
-				getSchema(schema),
+			validateArgs.validateArgs(
+				datatypes.getSchema(schema),
 				args[argsKey],
 				Object.keys[args[argsKey]]
 			);

@@ -4,7 +4,6 @@ const log = require('../utils/logging');
 const breakString = require('../utils/generatorUtils').breakString;
 const getExamples = require('../fetcher/fhirExampleFetcher').getExamples;
 const config = require('config');
-const RESOURCES_DIR = config.output.dir.resource;
 
 const callback = (error) => {
 	if (error) {

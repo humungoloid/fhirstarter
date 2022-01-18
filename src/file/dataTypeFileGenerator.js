@@ -3,8 +3,6 @@ const path = require('path');
 const config = require('config');
 const log = require('../utils/logging');
 
-const DATATYPES_DIR = config.output.dir.datatypes;
-
 module.exports = async (dataTypes, quantityTypes) => {
 	if (dataTypes.length === 0) {
 		return;

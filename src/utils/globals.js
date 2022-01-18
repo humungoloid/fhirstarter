@@ -10,6 +10,9 @@ module.exports = () => {
 		headers: { 'X-Requested-With': 'XMLHttpRequest' },
 		transformResponse: [(data) => data],
 	});
+	global.RESOURCES_DIR = config.output.dir.resource;
+	global.UTILS_DIR = config.output.dir.utils;
+	global.DATATYPES_DIR = config.output.dir.datatypes;
 	global.config = config;
 	global.DEFAULT_ARG_VALIDATOR = require('../../.fhirstarter/templates/_argValidatorFunction');
 	global.DEFAULT_PRIMITIVE_TYPES = require('../../.fhirstarter/templates/_primitiveTypesTemplate');

@@ -4,8 +4,6 @@ const config = require('config');
 const log = require('../utils/logging');
 const camelCase = require('../utils/generatorUtils').camelCase;
 
-const UTILS_DIR = config.output.dir.utils;
-const DATATYPES_DIR = config.output.dir.datatypes;
 const MAX_LINE_LENGTH = config.output.maxLineLength;
 
 const VALIDATE_ARGS_NAME = 'validateArgs';
@@ -92,12 +90,12 @@ const ${functionName} = (args) => {
 	let writeToFile = `
 ${AUTO_GENERATED}
 
-import ${VALIDATE_ARGS_NAME} from './${VALIDATE_ARGS_NAME}';
+import {${VALIDATE_ARGS_NAME}} from './${VALIDATE_ARGS_NAME}';
 import getSchema from '../datatypes';
 ${imports}
 ${writeFuncs}
 ${writeConsts}
-dict = {${dictEntries}}
+const dict = {${dictEntries}}
 export default class FhirDataTypeBuilder {
 
 static getBuilderFunction = (resource) => {

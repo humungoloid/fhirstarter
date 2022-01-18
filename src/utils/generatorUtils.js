@@ -3,40 +3,43 @@ const path = require('path');
 const log = require('../utils/logging');
 const config = require('config');
 
-const RESOURCES_DIR = config.output.dir.resource;
-const UTILS_DIR = config.output.dir.utils;
-const DATATYPES_DIR = config.output.dir.datatypes;
-const CLEAR_DIRECTORIES = config.cleanupDirectories;
-const VERBOSE = config.logging.verbose;
-
-module.exports = {
-	makeDirs: async () => {
-		let dirs = [RESOURCES_DIR, UTILS_DIR, DATATYPES_DIR];
-		log.info('Creating directories...');
-		for (let dir of dirs) {
-			try {
-				let files = await fs.readdir(dir);
-				if (CLEAR_DIRECTORIES) {
-					log.warning(`Deleting files in ${dir}...`);
-					for (let file of files) {
-						fs.unlink(path.resolve(dir, file));
-					}
-				}
-			} catch {
-				try {
-					log.info(
-						`${dir} could not be read; assuming it doesn't exist, and creating it.`
-					);
-					fs.mkdir(dir, { recursive: true });
-				} catch (error) {
-					log.error(
-						`Unable to create directory '${dir}' - error: ${error.message}`
-					);
+const __mkDirs = async (resourcesDir, utilsDir, dataTypesDir, cleanDirs) => {
+	const resources = resourcesDir || RESOURCES_DIR,
+		utilities = utilsDir || UTILS_DIR,
+		datatypes = dataTypesDir || DATATYPES_DIR,
+		CLEAR_DIRECTORIES = cleanDirs || config.cleanupDirectories;
+	let dirs = [resources, utilities, datatypes];
+	log.info('Creating directories...');
+	for (let dir of dirs) {
+		try {
+			let files = await fs.readdir(dir);
+			if (CLEAR_DIRECTORIES) {
+				log.warning(`Deleting files in ${dir}...`);
+				for (let file of files) {
+					fs.unlink(path.resolve(dir, file));
 				}
 			}
+		} catch {
+			try {
+				log.info(
+					`${dir} could not be read; assuming it doesn't exist, and creating it.`
+				);
+				fs.mkdir(dir, { recursive: true });
+			} catch (error) {
+				log.error(
+					`Unable to create directory '${dir}' - error: ${error.message}`
+				);
+			}
 		}
-		log.info('Finished creating directories');
+	}
+	log.info('Finished creating directories');
+};
+module.exports = {
+	cleanDirs: async () => {
+		__mkDirs(null, null, null, true);
 	},
+
+	makeDirs: __mkDirs,
 
 	camelCase: (...args) => {
 		let result = '';

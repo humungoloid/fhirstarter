@@ -5,7 +5,6 @@ const log = require('../utils/logging');
 const breakString = require('../utils/generatorUtils').breakString;
 const camelCase = require('../utils/generatorUtils').camelCase;
 
-const RESOURCES_DIR = config.output.dir.resource;
 const DO_NOT_EXTEND_DOMAINRESOURCE = config.processing.extendOnlyBaseResource;
 const MAX_LINE_LENGTH = config.output.maxLineLength;
 
@@ -104,6 +103,7 @@ ${fields.join(' ')}
 constructor(resourceString) {
 	super(resourceString);
 	this.schema = ${schemaName};
+	this.resourceType = this.schema.resourceType;
 	this.populateFields();
 }
 
@@ -168,6 +168,9 @@ export default fhirSchemas;
 const generateFieldsInner = (schema, fields, rootName) => {
 	let keys = Object.keys(schema);
 	for (let key of keys) {
+		if (key === 'resourceType') {
+			continue;
+		}
 		let field = '';
 		if (schema[key] instanceof Array) {
 			let initializer;
