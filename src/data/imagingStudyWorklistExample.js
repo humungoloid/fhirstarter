@@ -6,7 +6,6 @@ module.exports = `{
 	},
 	"subject": {
 		"reference": "fhir/Patient/292158",
-		"id": "292158",
 		"display": "1220^1220"
 	},
 	"identifier": [
@@ -431,13 +430,22 @@ module.exports = `{
 	"department": "A",
 	"patientContactMethod": "E-MAIL",
 	"visitClass": "PRE-ADMISSION",
-	"eligibility": "Pending",
+	"eligibility": {
+		"url": "http://ramsoft.com/hl7/extension", 
+		"valueCoding": {
+			"code": "UN",
+			"display": "Pending"
+		}
+	},
 	"fillerOrderNumber": "1200",
 	"placerOrderNumber": "1300",
 	"orderStatus": "EXAMDISCONTINUED",
 	"orderDateTime": "2017-12-21T16:49:09",
 	"requestedAppointmentDateTime": "2017-12-21T09:49:37",
-	"orderCustomMemo": "DR Memo1",
+	"orderCustomMemo": {
+		"url": "http://hl7.org/fhir/us/core/StructureDefinition/ordercustommemo",
+		"valueString": "DR Field2"
+	},
 	"patientEmail": "rqwplgy.tefrzx@ifqpoz.org",
 	"readingPhysicianNPI": "NPI100201",
 	"performingPhysicianNPI": "NPI002392",

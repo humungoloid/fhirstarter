@@ -18,17 +18,43 @@ module.exports = () => {
 	global.DEFAULT_PRIMITIVE_TYPES = require('../../.fhirstarter/templates/_primitiveTypesTemplate');
 	global.IMAGING_STUDY_WORKLIST_SCHEMA = JSON.parse(`
 	{
-		"resourceType": "__string__",
+		"resourceType": "ImagingStudyWorklist",
 		"id": "__string__",
 		"internalStudyID": "__string__",
+		"subject": "__Reference(Patient)__",
 		"accessionNumber": "__Identifier__",
 		"authorizationNumbers": "__string__",
 		"assigningAuthority": "__Identifier__",
 		"accountNumber": "__string__",
 		"accountStatus": "__string__",
+		"allergies": ["__Coding__"],
+		"gender": "__string__",
+		"availability": "__string__",
 		"authorizationPeriod": "__string__",
 		"cancellationReason": "__string__",
 		"cdsId": "__Extension(valueString)__",
+		"sourceDeviceAETitle": "__string__",
+		"smokingStatus": [
+			"__Coding__"
+		],
+		"conditions": [
+			"__Coding__"
+		],
+		"languages": [
+			"__Coding__"
+		],
+		"modality": [
+			"__Coding__"
+		],
+		"race":[
+			"__Coding__"
+		],
+		"ethnicity":[
+			"__Coding__"
+		],
+		"patientEmail": "__string__",
+		"transport": "__string__",
+		"reasonCode": ["__CodeableConcept__"],
 		"cellPhone": "__string__",
 		"chargeStatus": "__string__",
 		"patientContactMethod": "__string__",
@@ -47,15 +73,21 @@ module.exports = () => {
 		"dateTimeVerified": "__dateTime__",
 		"department": "__string__",
 		"description": "__string__",
-		"diagnosisCodesDisplay": "__string__",
+		"diagnosisCodes": [
+			"__Coding__"
+		],
 		"examDuration": "__string__",
 		"eligibility": "__Extension(valueCoding)__",
 		"visitClass": "__string__",
 		"communicationStatusName": "__string__",
 		"fillerOrderNumber": "__string__",
 		"homePhone": "__string__",
+		"patientAge": "__unsignedInt__",
 		"numImages": "__unsignedInt__",
-		"insuranceCopay": "__string__",
+		"insuranceCopay": "__decimal__",
+		"objectType":"__string__",
+		"reportingDetail": "__string__",
+		"insuranceExpiry": "__dateTime__",
 		"insurancePayer": "__Reference(Organization|Patient)__",
 		"internalOrganizationId": "__string__",
 		"internalOrganizationValue": "__string__",
@@ -68,6 +100,7 @@ module.exports = () => {
 		"numFrames": "__unsignedInt__",
 		"numberOfInstances": "__unsignedInt__",
 		"numReports": "__unsignedInt__",
+		"numObjects": "__unsignedInt__",		
 		"orderAppropriateness": "__Extension(valueCoding)__",
 		"orderCustomField1": "__Extension(valueString)__",
 		"orderCustomField2": "__Extension(valueString)__",
@@ -75,6 +108,8 @@ module.exports = () => {
 		"orderDateTime": "__dateTime__",
 		"orderStatus": "__string__",
 		"imagingOrganization": "__string__",
+		"imagingFacility": "__string__",
+		"financialClass": "__Coding__",
 		"patientBalance": "__string__",
 		"patientID": "__string__",
 		"performingPhysician": "__string__",
@@ -94,6 +129,7 @@ module.exports = () => {
 		"referringPhysicianNPI": "__string__",
 		"requestedAppointmentDateTime": "__dateTime__",
 		"scheduledResource": "__string__",
+		"birthDate": "__dateTime__",
 		"birthSex": "__Extension(valueCode)__",
 		"ssn": "__string__",
 		"state": "__string__",
@@ -123,6 +159,7 @@ module.exports = () => {
 		"techniqueObject": "__Extension(valueCoding)__",
 		"requestedProcedureID": "__Extension(valueString)__",
 		"studyDateTime": "__dateTime__",
-		"status": "__Extension(valueCoding)__"
+		"status": "__Extension(valueCoding)__",
+		"started": "__dateTime__"
 	}`);
 };

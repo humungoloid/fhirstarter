@@ -101,9 +101,8 @@ export default class ${resourceName}Resource extends Fhir${extend} {
 ${fields.join(' ')}
 
 constructor(resourceString) {
-	super(resourceString);
-	this.schema = ${schemaName};
-	this.resourceType = this.schema.resourceType;
+	super(resourceString, ${schemaName});
+	this.resourceType = '${resourceName}';
 	this.populateFields();
 }
 

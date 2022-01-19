@@ -42,6 +42,7 @@ module.exports = async (resources) => {
 		switch (name) {
 			case 'Reference':
 			case 'Dosage':
+			case 'Narrative':
 			case 'Meta':
 				addIn = `
 				const {${params.join(', ')}} = args;
@@ -72,11 +73,11 @@ let argsKey = Object.keys(args)[1],
 			validateArgs.validateArgs(
 				datatypes.getSchema(schema),
 				args[argsKey],
-				Object.keys[args[argsKey]]
+				Object.keys([args[argsKey])
 			);
 	}
 	if (validated) {
-		return JSON.parse(\`{"url":"\${url}", "\${argsKey}": "\${args[argsKey]}"}\`);
+		return JSON.parse(\`{"url":"\${url}", "\${argsKey}": "\${JSON.stringify(JSON.parse(args[argsKey]))}"}\`);
 	}
 `;
 				break;

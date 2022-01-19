@@ -1,5 +1,5 @@
 // TODO: need to make the import modifyable
-module.exports = `import primitiveTypes from '../datatypes/primitiveTypes';
+module.exports = `import * as datatypes from '../datatypes';
 
 export const <__validateArgs> = (schema, args, argNames) => {
 	let valid = true;
@@ -19,13 +19,13 @@ export const <__validateArgs> = (schema, args, argNames) => {
 				: schema[argName]
 		).replace(/_/g, '');
 		// primitives are the base case in our recursion
-		let primitive = primitiveTypes[valType];
+		let primitive = datatypes.primitiveTypes[valType];
 		if (primitive) {
 			valid = validatePrimitive(primitive, argValues);
 		} else {
 			// not a primitive value, need to call validateArgs on the type
 			// recursion :)
-			let newSchema = getSchema(valType);
+			let newSchema = datatypes.getSchema(valType);
 			valid = argValues.reduce(
 				(a, b, idx, arr) =>
 					a && <__validateArgs>(newSchema, b, Object.keys(newSchema)),
@@ -39,7 +39,7 @@ export const <__validateArgs> = (schema, args, argNames) => {
 
 export const validatePrimitive = (primitive, value) => {
 	if (typeof primitive === 'string') {
-		primitive = primitiveTypes[primitive];
+		primitive = datatypes.primitiveTypes[primitive];
 	}
 	let valid = primitive !== undefined,
 		valArray = value instanceof Array ? [...value] : [value];

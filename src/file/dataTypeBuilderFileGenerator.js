@@ -50,7 +50,7 @@ module.exports = async (dataTypes, quantityTypes, importedResources) => {
 ${comments}
 const ${functionName} = (args) => {
 	const {${params.join(', ')}} = args;
-	const schema = getSchema('${dataType.name}');
+	const schema = datatypes.getSchema('${dataType.name}');
 	if (validateArgs(schema, args, Object.keys(args))) {
 		return ${JSON.stringify(globalJson).replace(/"/g, '')}
 	}
@@ -91,7 +91,7 @@ const ${functionName} = (args) => {
 ${AUTO_GENERATED}
 
 import {${VALIDATE_ARGS_NAME}} from './${VALIDATE_ARGS_NAME}';
-import getSchema from '../datatypes';
+import * as datatypes from '../datatypes';
 ${imports}
 ${writeFuncs}
 ${writeConsts}
@@ -147,6 +147,7 @@ ${functionNames.join(', ')}
 } from './${importFrom}';`,
 		exportStr = `
 export default FhirDataTypeBuilder;
+export * from './validateArgs';
 export {${functionNames.join(', ')}};
 `,
 		filename = 'index',

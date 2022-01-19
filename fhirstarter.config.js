@@ -42,6 +42,7 @@ const dev = {
 		meta: 'resource.html#meta',
 		reference: 'references.html',
 		extension: 'extensibility.html',
+		narrative: 'narrative.html',
 	},
 	logging: {
 		level: 'verbose',

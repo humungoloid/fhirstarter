@@ -20,7 +20,9 @@ const processJson = (jsonToProcess, resourceName) => {
 		.replace(/"?<(?<value>[A-Za-z0-9()|.]+)>"?/g, '"__$<value>__"')
 		.replace(/__"(?<value>[^,\]}])/g, '__","$<value>')
 		.replace(/",[A-Za-z0-9(),.:]*(?:Oneofthese)+\d:/, '",')
-		.replace(HANDLE_OPTION_REGEX, HANDLE_OPTION_REPLACEMENT_STRING);
+		.replace(HANDLE_OPTION_REGEX, HANDLE_OPTION_REPLACEMENT_STRING)
+		// special case for Narrative
+		.replace(/\(EscapedXHTML\)/g, '__EscapedXHTML__');
 
 	if (resourceName === 'SubstanceSpecification') {
 		// special case; for some reason the json is all jacked up for SubstanceSpecification...
