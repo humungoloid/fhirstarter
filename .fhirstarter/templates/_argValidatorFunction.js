@@ -2,39 +2,45 @@
 module.exports = `import * as datatypes from '../datatypes';
 
 export const <__validateArgs> = (schema, args, argNames) => {
-	let valid = true;
+	let errors = new Array();
+
 	for (let argName of argNames) {
-		if (!valid) {
-			break;
-		}
-		// just make everything into an array and use reducers
-		let argValues =
-			args[argName] instanceof Array
-				? [...args[argName]]
-				: [args[argName]];
-		// this could also be an array; in that case, use the first value, otherwise just use the value
-		let valType = (
-			schema[argName] instanceof Array
-				? schema[argName][0]
-				: schema[argName]
-		).replace(/_/g, '');
-		// primitives are the base case in our recursion
-		let primitive = datatypes.primitiveTypes[valType];
-		if (primitive) {
-			valid = validatePrimitive(primitive, argValues);
-		} else {
-			// not a primitive value, need to call validateArgs on the type
-			// recursion :)
-			let newSchema = datatypes.getSchema(valType);
-			valid = argValues.reduce(
-				(a, b, idx, arr) =>
-					a && <__validateArgs>(newSchema, b, Object.keys(newSchema)),
-				newSchema !== undefined
-			);
+		let valid = true;
+		try {
+			// just make everything into an array and use reducers
+			let argValues =
+				args[argName] instanceof Array
+					? [...args[argName]]
+					: [args[argName]];
+			// this could also be an array; in that case, use the first value, otherwise just use the value
+			let valType = (
+				schema[argName] instanceof Array
+					? schema[argName][0]
+					: schema[argName]
+			).replace(/_/g, '');
+			// primitives are the base case in our recursion
+			let primitive = datatypes.primitiveTypes[valType];
+			if (primitive) {
+				valid = validatePrimitive(primitive, argValues);
+			} else {
+				// not a primitive value, need to call <__validateArgs> on the type
+				// recursion :)
+				let newSchema = datatypes.getSchema(valType);
+				valid = argValues.reduce(
+					(a, b, idx, arr) =>
+						a && <__validateArgs>(newSchema, b, Object.keys(newSchema)),
+					newSchema !== undefined
+				);
+			}
+		} catch (error) {
+			errors.push({ name: argName, errorMsg: error.message });
 		}
 	}
+	if (errors.length > 0) {
+		console.warn(\`Invalid values discarded: \${errors.map(elem => elem.name).join(', ')}\`);
+	}
 
-	return valid;
+	return errors.length < args.length;
 };
 
 export const validatePrimitive = (primitive, value) => {
@@ -63,4 +69,5 @@ export const validatePrimitive = (primitive, value) => {
 		);
 	}
 	return valid;
-};`;
+};
+`;

@@ -350,7 +350,6 @@ module.exports = `{
 	},
 	"insurancePayer": {
 		"reference": "fhir/Organization/104",
-		"id": "104",
 		"display": "PAYER FOR COVERAGE"
 	},
 	"insuranceCopay": 20180516.1,

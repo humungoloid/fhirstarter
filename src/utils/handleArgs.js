@@ -15,6 +15,13 @@ module.exports = async (args) => {
 			case '--clean':
 				cleanDirs();
 				break;
+			case '-o':
+			case '--output':
+				if (!arg[1]) {
+					throw Error('Must specify resources directory');
+				}
+				process.env.FHIR_BASE_OUTPUTDIR = arg[1];
+				break;
 			case '--resourcesDir':
 				if (!arg[1]) {
 					throw Error('Must specify resources directory');

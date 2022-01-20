@@ -3,7 +3,7 @@ const path = require('path');
 const defer = require('config/defer').deferConfig;
 
 const env = process.env.NODE_ENV;
-process.env.FHIR_BASE_OUTPUTDIR ??= './output';
+process.env.FHIR_BASE_OUTPUTDIR ??= 'D:\\omega-ui\\app\\core\\src\\fhir';
 
 const dev = {
 	headerComment: '/* Generated automagically by FhirStarter*/',
@@ -14,7 +14,7 @@ const dev = {
 	},
 	output: {
 		dir: {
-			base: process.env.FHIR_BASE_OUTPUTDIR,
+			base: 'D:\\omega-ui\\app\\core\\src\\fhir',
 			resource: path.resolve(
 				process.env.FHIR_BASE_OUTPUTDIR,
 				process.env.FHIR_RESOURCE_OUTPUTDIR || 'resource'

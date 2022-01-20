@@ -104,7 +104,9 @@ const getFhirPage = async (resourceName) => {
 			)[0]
 			.parentNode.querySelectorAll('p')
 			.map((elem) => elem.innerText)
-			.join('');
+			.join('')
+			.replace(/(?<c>[^\s])\r\n/g, '$<c> ')
+			.replace(/(?<c>[^.]\s*)\r\n/g, '$<c>');
 	} catch {
 		log.warning(`Unable to get a description for ${resourceName}`);
 		description = 'No description could be found for this resource';

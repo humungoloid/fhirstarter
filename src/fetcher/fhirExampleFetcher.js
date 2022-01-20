@@ -5,26 +5,7 @@ const log = require('../utils/logging');
 const imagingStudyWorklistExample = require('./../data/imagingStudyWorklistExample');
 const config = require('config');
 
-module.exports = {
-	getExamples: async (resources) => {
-		resources = resources || resources.allResources;
-		let resourceSchemas = [],
-			result;
-
-		for (let page of resources) {
-			try {
-				result = await getExample(page);
-				resourceSchemas.push(result);
-			} catch (error) {
-				log.error(`Failed to fetch ${page} - Error: ${error.message}`);
-			}
-		}
-
-		return resourceSchemas;
-	},
-};
-
-const getExample = async (resource) => {
+const getExampleInner = async (resource) => {
 	let result;
 	if (resource === 'ImagingStudyWorklist') {
 		result = JSON.stringify(
@@ -51,4 +32,25 @@ const getExample = async (resource) => {
 		name: resource,
 		schema: result,
 	};
+};
+
+module.exports = {
+	getExamples: async (resources) => {
+		resources = resources || resources.allResources;
+		let resourceSchemas = [],
+			result;
+
+		for (let page of resources) {
+			try {
+				result = await getExampleInner(page);
+				resourceSchemas.push(result);
+			} catch (error) {
+				log.error(`Failed to fetch ${page} - Error: ${error.message}`);
+			}
+		}
+
+		return resourceSchemas;
+	},
+
+	getExample: getExampleInner,
 };

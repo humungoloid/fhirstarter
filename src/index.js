@@ -24,9 +24,6 @@ const handleArgs = require('./utils/handleArgs');
 			result.specialCases
 		);
 
-		await fhirResourceUnitTestFileGenerator.buildUnitTestFiles(
-			result.resources.map((elem) => JSON.parse(elem).name)
-		);
 		log.success('Finished!');
 		let logFunc = FAILURES.length === 0 ? log.success : log.error;
 		logFunc(`Failures: [${FAILURES.join(', ')}]`);

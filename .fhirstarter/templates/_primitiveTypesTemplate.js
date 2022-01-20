@@ -91,7 +91,9 @@ const primitiveTypes = (() => {
 	}
 	return types;
 })();
-export default primitiveTypes;
-export const isPrimitive = (valueType) =>
-	primitiveTypes[valueType] !== undefined;
+
+const isPrimitive = (valueType) =>
+primitiveTypes[valueType] !== undefined;
+
+export { primitiveTypes, isPrimitive };
 `;

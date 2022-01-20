@@ -47,38 +47,41 @@ module.exports = async (resources) => {
 				addIn = `
 				const {${params.join(', ')}} = args;
 				const schema = datatypes.getSchema('${name}');
-if (validateArgs.validateArgs(schema, args, Object.keys(args))) {
+validateArgs.validateArgs(schema, args, Object.keys(args));
 	${addIn}
 	return ${JSON.stringify(globalJson).replace(/"/g, '')}
-}`;
+`;
 				break;
 			case 'Extension':
+				imports.push(`import * as utils from '../utils'`);
 				addIn = `
 const {url, ${params.filter((elem) => elem !== 'url').join(', ')}} = args;
 // we can only include one, so just include the first one
 let argsKey = Object.keys(args)[1],
 		validated = validateArgs.validatePrimitive('url', url),
-		schema = argsKey.slice('value'.length);
+		schema = argsKey.slice('value'.length),
+		isPrimitiveValue = datatypes.isPrimitive(
+			schema.charAt(0).toLowerCase() + schema.slice(1)
+		),
+		value;
 
-	if (datatypes.isPrimitive(schema.charAt(0).toLowerCase() + schema.slice(1))) {
-		validated =
-			validated &&
-			validateArgs.validatePrimitive(
-				schema.charAt(0).toLowerCase() + schema.slice(1),
-				args[argsKey]
-			);
+	if (isPrimitiveValue) {
+		validateArgs.validatePrimitive(
+			schema.charAt(0).toLowerCase() + schema.slice(1),
+			args[argsKey]
+		);
+		value = \`"\${args[argsKey]}"\`;
 	} else {
-		validated =
-			validated &&
-			validateArgs.validateArgs(
-				datatypes.getSchema(schema),
-				args[argsKey],
-				Object.keys([args[argsKey])
-			);
+		validateArgs.validateArgs(
+			datatypes.getSchema(schema),
+			args[argsKey],
+			Object.keys(args[argsKey])
+		);
+		value = utils.default.buildDataType(schema, args[argsKey]);
 	}
-	if (validated) {
-		return JSON.parse(\`{"url":"\${url}", "\${argsKey}": "\${JSON.stringify(JSON.parse(args[argsKey]))}"}\`);
-	}
+	return JSON.parse(
+		\`{"url":"\${url}", "\${argsKey}": \${JSON.stringify(value)}}\`
+	);
 `;
 				break;
 		}

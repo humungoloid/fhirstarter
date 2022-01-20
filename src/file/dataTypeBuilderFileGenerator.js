@@ -51,9 +51,9 @@ ${comments}
 const ${functionName} = (args) => {
 	const {${params.join(', ')}} = args;
 	const schema = datatypes.getSchema('${dataType.name}');
-	if (validateArgs(schema, args, Object.keys(args))) {
-		return ${JSON.stringify(globalJson).replace(/"/g, '')}
-	}
+	validateArgs(schema, args, Object.keys(args));
+	return ${JSON.stringify(globalJson).replace(/"/g, '')}
+	
 }`;
 		writeFuncs += newFunc;
 		writeConsts += newConst;
@@ -96,22 +96,14 @@ ${imports}
 ${writeFuncs}
 ${writeConsts}
 const dict = {${dictEntries}}
-export default class FhirDataTypeBuilder {
 
-static getBuilderFunction = (resource) => {
+export const getBuilderFunction = (resource) => {
 	return dict[resource];
 }
 
-static buildDataType = (resource, ...args) => {
+export const buildDataType = (resource, ...args) => {
 	return dict[resource](...args);
-}
-
-
-}
-
-
-export {${exports.map(exportMapper).join(', ')}};
-`;
+}`;
 
 	try {
 		await buildUtilsIndex(exports, filename, imports);
@@ -142,13 +134,10 @@ const callback = (error) => {
 
 const buildUtilsIndex = async (functionNames, importFrom, imports) => {
 	let importStr = `
-import FhirDataTypeBuilder, {
-${functionNames.join(', ')}
-} from './${importFrom}';`,
+`,
 		exportStr = `
-export default FhirDataTypeBuilder;
+export * from './${importFrom}';
 export * from './validateArgs';
-export {${functionNames.join(', ')}};
 `,
 		filename = 'index',
 		writeToFile = `

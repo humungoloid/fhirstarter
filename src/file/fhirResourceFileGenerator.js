@@ -4,6 +4,9 @@ const path = require('path');
 const log = require('../utils/logging');
 const breakString = require('../utils/generatorUtils').breakString;
 const camelCase = require('../utils/generatorUtils').camelCase;
+const generateUnitTestFile =
+	require('./fhirResourceUnitTestFileGenerator').generateUnitTestFile;
+const getExample = require('../fetcher/fhirExampleFetcher').getExample;
 
 const DO_NOT_EXTEND_DOMAINRESOURCE = config.processing.extendOnlyBaseResource;
 const MAX_LINE_LENGTH = config.output.maxLineLength;
@@ -74,6 +77,7 @@ module.exports = {
 	 */
 	buildResourceFile: async (resource) => {
 		let json = JSON.parse(resource),
+			example = await getExample(json.name),
 			schema = json.schema,
 			resourceName = json.name,
 			extend = DO_NOT_EXTEND_DOMAINRESOURCE.includes(resourceName)
@@ -83,14 +87,13 @@ module.exports = {
 			description = json.description,
 			filename = `${resourceName}Resource` || '__failed';
 		let fields = generateFields(schema);
+		generateUnitTestFile(example, fields);
 		let schemaName = camelCase(`${resourceName}Schema`);
 		try {
 			let toWrite = `
 ${AUTO_GENERATED}
 
 import { Fhir${extend} } from '../base';
-// import FhirDataTypeBuilder from '../utils'; // uncomment this line if needed for building generator functions
-
 /${ASTERISK}
 Resource: ${resourceName}
 Reference: ${reference}
@@ -98,7 +101,7 @@ ${breakString(description, MAX_LINE_LENGTH)}
 ${ASTERISK}/
 
 export default class ${resourceName}Resource extends Fhir${extend} {
-${fields.join(' ')}
+${fields.join(';')};
 
 constructor(resourceString) {
 	super(resourceString, ${schemaName});
@@ -182,13 +185,13 @@ const generateFieldsInner = (schema, fields, rootName) => {
 				rootName,
 				rootName === '' ? '' : '_',
 				key
-			)} = ${initializer};`;
+			)} = ${initializer}`;
 		} else if (typeof schema[key] === 'string') {
 			field = `${buildParamNameString(
 				rootName,
 				rootName === '' ? '' : '_',
 				key
-			)};`;
+			)}`;
 		} else {
 			generateFieldsInner(
 				schema[key],

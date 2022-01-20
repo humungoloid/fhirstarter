@@ -4,6 +4,7 @@ const buildDataTypeBuilderFile = require('./dataTypeBuilderFileGenerator');
 const buildDataTypeFile = require('./dataTypeFileGenerator');
 const ResourceGenerator = require('./fhirResourceFileGenerator');
 const buildSpecialCasesFiles = require('./fhirSpecialCaseBuilderFileGenerator');
+const getExamples = require('../fetcher/fhirExampleFetcher').getExamples;
 const makeDirs = require('../utils/generatorUtils').makeDirs;
 
 module.exports = {

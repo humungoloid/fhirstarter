@@ -29,11 +29,13 @@ export const ${dataType.name} = ${JSON.stringify(dataType.schema)
 	}
 
 	let getSchemaFunc = `
-const getSchema = (schema) => {
-	return dict[\`\${schema}Const\`]
-}
-
-export default getSchema;
+export const getSchema = (schema) => {
+	const REGEX = /__(?<datatype>[^_]*)__/g;
+	if (REGEX.test(schema)) {
+		schema = schema.replace(REGEX, '$<datatype>');
+	}
+	return dict[\`\${schema}Const\`];
+};
 `;
 
 	let quantityTypesString = `
@@ -74,12 +76,9 @@ const buildDataTypeIndex = async (filename) => {
 	let file = path.resolve(DATATYPES_DIR, `index.js`);
 	let writeToFile = `
 ${AUTO_GENERATED}
-import getSchema from './${filename}';
-import primitiveTypes from './primitiveTypes';
 
 export * from './${filename}';
-export { primitiveTypes };
-export default getSchema;
+export * from './primitiveTypes';
 `;
 	try {
 		await fs.writeFile(file, writeToFile, { flag: 'w' }, callback);
