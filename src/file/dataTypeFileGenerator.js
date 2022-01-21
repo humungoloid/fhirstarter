@@ -1,8 +1,6 @@
-const fs = require('fs').promises;
-const path = require('path');
-const config = require('config');
-const log = require('../utils/logging');
-
+const rules = require('./dataTypeRules');
+const writeFile = require('../utils/fileWriter');
+const CAN_EDIT = false;
 module.exports = async (dataTypes, quantityTypes) => {
 	if (dataTypes.length === 0) {
 		return;
@@ -13,19 +11,53 @@ module.exports = async (dataTypes, quantityTypes) => {
 
 	let filename = 'fhirDataTypes',
 		writeToFile = `
-${AUTO_GENERATED}
+/* ${__global.AUTO_GENERATED} - ${CAN_EDIT ? __global.ALLOW_EDIT : __global.DO_NOT_EDIT} */
 `;
 	for (let dataType of dataTypes) {
-		writeToFile =
-			writeToFile +
-			`
-export const ${dataType.name} = ${JSON.stringify(dataType.schema)
-				.replace(/[\\]?"/g, '')
-				.replace(/\s*=\s*["|']{/g, ' = {')
-				.replace(/}["|'];*/g, '};')
-				// we want to put parentheses back around the values
-				.replace(REGEX, REPLACE)};
+		let jsonSchema = JSON.parse(dataType.schema);
+		if (rules[dataType.name]) {
+			jsonSchema['__rule'] = rules[dataType.name].toString().replace(/[\r\n\t]/g, '');
+		}
+		dataType.schema = JSON.stringify(jsonSchema);
+
+		writeToFile += `
+export const ${dataType.name} = ${JSON.stringify({
+			valid: true,
+			...JSON.parse(dataType.schema),
+		})
+			.replace(/[\\]?"/g, '')
+			.replace(/\s*=\s*["|']{/g, ' = {')
+			.replace(/}["|'];*/g, '};')
+			// we want to put parentheses back around the values
+			.replace(REGEX, REPLACE)
+			.replace(/"__rule": "(?<func>[^"]*)"/, '__rule: $<func>')
+			.replace(/valid:(true|false)/g, '__valid:$1')};
 `;
+		if (dataType.name === 'Quantity') {
+			for (let q of quantityTypes) {
+				jsonSchema = JSON.parse(dataType.schema);
+				if (rules[q]) {
+					jsonSchema['__rule'] = rules[q].toString().replace(/[\r\n\t]/g, '');
+				}
+
+				dataType.schema = JSON.stringify(jsonSchema);
+				writeToFile =
+					writeToFile +
+					`
+export const ${q} = ${JSON.stringify({
+						valid: true,
+						...JSON.parse(dataType.schema),
+					})
+						.replace(/[\\]?"/g, '')
+						.replace(/\s*=\s*["|']{/g, ' = {')
+						.replace(/}["|'];*/g, '};')
+						// we want to put parentheses back around the values
+						.replace(REGEX, REPLACE)
+						.replace(/"__rule": "(?<func>[^"]*)"/, '__rule: $<func>')
+						.replace(/valid:(true|false)/g, '__valid:$1')};
+`;
+			}
+		}
 	}
 
 	let getSchemaFunc = `
@@ -38,52 +70,29 @@ export const getSchema = (schema) => {
 };
 `;
 
-	let quantityTypesString = `
-export const QuantityVariations = [
-${quantityTypes.map((elem) => `'${elem}'`).join(', ')}
-];
-`;
 	let mapper = (elem) => `${elem.name}Const: ${elem.name}`;
-	let quantMapper = (elem) => `${elem}Const: Quantity`;
-	writeToFile += quantityTypesString;
-	writeToFile += `const dict = {${dataTypes.map(mapper)},${quantityTypes.map(
-		quantMapper
-	)}}`;
+	let quantMapper = (elem) => `${elem}Const:  ${elem}`;
+	writeToFile += `const dict = {${dataTypes.map(mapper)},${quantityTypes.map(quantMapper)}}`;
 	writeToFile += getSchemaFunc;
 
 	await buildDataTypeIndex(filename);
 
-	try {
-		let file = path.resolve(DATATYPES_DIR, `${filename}.js`);
-		log.info(`Writing file ${filename}.js`);
-		await fs.writeFile(file, writeToFile, { flag: 'w' }, callback);
-		log.success(`Successfully wrote file ${filename}.js`);
-	} catch (error) {
-		log.error(
-			`Failed to write file ${filename}.js  - Error: ${error.message}`
-		);
-		FAILURES.push(filename);
-	}
-};
-
-const callback = (error) => {
-	if (error) {
-		throw error;
+	let failure = await writeFile(filename, writeToFile, __global.DATATYPES_DIR);
+	if (failure) {
+		__global.FAILURES.push(failure);
 	}
 };
 
 const buildDataTypeIndex = async (filename) => {
-	let file = path.resolve(DATATYPES_DIR, `index.js`);
+	let writeFileName = 'index';
 	let writeToFile = `
-${AUTO_GENERATED}
+/* ${__global.AUTO_GENERATED} - ${CAN_EDIT ? __global.ALLOW_EDIT : __global.DO_NOT_EDIT} */
 
 export * from './${filename}';
-export * from './primitiveTypes';
+export { primitiveTypes, isPrimitive, getPrimitive } from './primitiveTypes';
 `;
-	try {
-		await fs.writeFile(file, writeToFile, { flag: 'w' }, callback);
-	} catch (error) {
-		log.error(`Failed to write file ${filename}.js - ${error.message}`);
-		FAILURES.push(filename);
+	let failure = await writeFile(writeFileName, writeToFile, __global.DATATYPES_DIR);
+	if (failure) {
+		__global.FAILURES.push(failure);
 	}
 };

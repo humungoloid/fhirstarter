@@ -1,16 +1,14 @@
-const config = require('config');
-
 module.exports = {
 	// TODO: Automatically scrape all these resources/datatypes from fhir.org
 	allResources: (() => {
-		let vals = [
+		return [
 			// 'Account',
 			// 'ActivityDefinition',
 			// 'AdverseEvent',
 			// 'AllergyIntolerance',
 			// 'Appointment',
 			// 'AppointmentResponse',
-			'AuditEvent',
+			// 'AuditEvent',
 			// 'Basic',
 			// 'Binary',
 			// 'BiologicallyDerivedProduct',
@@ -150,11 +148,14 @@ module.exports = {
 			// 'VerificationResult',
 			// 'VisionPrescription',
 		];
-		if (config.get('processing.useImagingStudyWorklistResource') === true) {
-			vals.push('ImagingStudyWorklist');
-		}
-		return vals;
 	})(),
+
+	customResources: [
+		'D:\\RapidResults-Mono\\FrontEndWebApps\\ImageViewer\\packages\\local\\data\\src\\data\\model\\core\\FhirStudySearchModel.js',
+		'D:\\RapidResults-Mono\\FrontEndWebApps\\ImageViewer\\packages\\local\\data\\src\\data\\model\\core\\PatientActivityModel.js',
+		'D:\\RapidResults-Mono\\FrontEndWebApps\\ImageViewer\\packages\\local\\data\\src\\data\\model\\core\\WorklistLayoutModel.js',
+		'D:\\RapidResults-Mono\\FrontEndWebApps\\ImageViewer\\packages\\local\\data\\src\\data\\model\\core\\TaskLogLayoutModel.js',
+	],
 
 	allQuantityTypes: [
 		'Age', //
@@ -194,13 +195,12 @@ module.exports = {
 		'Timing',
 	],
 
-	// TODO: Handle special types
 	allSpecialCases: [
 		// special types
-		{ name: 'Dosage', url: config.http.dosage },
-		{ name: 'Meta', url: config.http.meta },
-		{ name: 'Reference', url: config.http.reference },
-		{ name: 'Extension', url: config.http.extension },
-		{ name: 'Narrative', url: config.http.narrative },
+		{ name: 'Dosage', url: __global.__config.http.dosage },
+		{ name: 'Meta', url: __global.__config.http.meta },
+		{ name: 'Reference', url: __global.__config.http.reference },
+		{ name: 'Extension', url: __global.__config.http.extension },
+		{ name: 'Narrative', url: __global.__config.http.narrative },
 	],
 };

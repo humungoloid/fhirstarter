@@ -11,7 +11,7 @@ node_modules
 .yarn/install-state.gz
 
 # output
-output
+output*
 
 # testing
 coverage

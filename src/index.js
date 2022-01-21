@@ -1,11 +1,10 @@
 require('dotenv').config();
 const log = require('./utils/logging');
-const initGlobals = require('./utils/globals');
-initGlobals();
+__global = require('./utils/globals');
+
 const handlePages = require('./fetcher/fhirJsonFetcher');
 const FileGenerator = require('./file/fileGenerator');
 const resources = require('./data/resources');
-const fhirResourceUnitTestFileGenerator = require('./file/fhirResourceUnitTestFileGenerator');
 const handleArgs = require('./utils/handleArgs');
 
 (async function (args) {
@@ -15,7 +14,8 @@ const handleArgs = require('./utils/handleArgs');
 			resources.allResources,
 			resources.allDataTypes,
 			resources.allMetadataTypes,
-			resources.allSpecialCases
+			resources.allSpecialCases,
+			resources.customResources
 		);
 		await FileGenerator.buildFiles(
 			result.resources,
@@ -25,8 +25,8 @@ const handleArgs = require('./utils/handleArgs');
 		);
 
 		log.success('Finished!');
-		let logFunc = FAILURES.length === 0 ? log.success : log.error;
-		logFunc(`Failures: [${FAILURES.join(', ')}]`);
+		let logFunc = __global.FAILURES.length === 0 ? log.success : log.error;
+		logFunc(`Failures: [${__global.FAILURES.join(', ')}]`);
 	} catch (error) {
 		log.error(`Failed - Error: ${error.message}`);
 	}

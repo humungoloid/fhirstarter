@@ -3,18 +3,6 @@
  * https://jestjs.io/docs/configuration
  */
 
-const axios = require('axios');
-
-global.VERBOSE = true;
-global.AUTO_GENERATED = '/**/';
-global.FAILURES = [];
-global.HTTP = axios.create({
-	baseURL: 'https://www.hl7.org/fhir',
-	timeout: 60000,
-	headers: { 'X-Requested-With': 'XMLHttpRequest' },
-	transformResponse: [(data) => data],
-});
-
 module.exports = {
 	collectCoverage: true,
 

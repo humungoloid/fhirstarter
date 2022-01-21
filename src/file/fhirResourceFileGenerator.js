@@ -1,30 +1,70 @@
-const fs = require('fs').promises;
-const config = require('config');
-const path = require('path');
-const log = require('../utils/logging');
 const breakString = require('../utils/generatorUtils').breakString;
 const camelCase = require('../utils/generatorUtils').camelCase;
-const generateUnitTestFile =
-	require('./fhirResourceUnitTestFileGenerator').generateUnitTestFile;
+const writeFile = require('../utils/fileWriter');
+const generateUnitTestFile = require('./fhirResourceUnitTestFileGenerator').generateUnitTestFile;
 const getExample = require('../fetcher/fhirExampleFetcher').getExample;
+const generateColumnMappingFile = require('./fhirResourceColumnMappingFileGenerator').generateColumnMappingFile;
+const log = require('../utils/logging');
+const generateGetSchemaUnitTestFile = require('./fhirResourceUnitTestFileGenerator').generateGetSchemaUnitTestFile;
 
-const DO_NOT_EXTEND_DOMAINRESOURCE = config.processing.extendOnlyBaseResource;
-const MAX_LINE_LENGTH = config.output.maxLineLength;
-
+const DO_NOT_EXTEND_DOMAINRESOURCE = __global.__config.processing.extendOnlyBaseResource;
+const MAX_LINE_LENGTH = __global.__config.output.maxLineLength;
+const CAN_EDIT = false;
 const ASTERISK = '*'.repeat(MAX_LINE_LENGTH);
-const callback = (error) => {
-	if (error) {
-		throw error;
-	}
-};
 
-const generateFields = (schema) => {
+const _generateFields = (schema) => {
 	let fields = [];
-	generateFieldsInner(schema, fields, '');
+	_generateFieldsInner(schema, fields, '');
 
 	return fields;
 };
 
+const _schemaFile = async (schemaName, schema) => {
+	let filename = schemaName,
+		schemaConst = `const ${schemaName} = ${JSON.stringify(schema, null, 4)};`,
+		exportStmt = `export default ${schemaName}`,
+		writeToFile = `
+	/* ${__global.AUTO_GENERATED} - ${__global.DO_NOT_EDIT} */
+	${schemaConst}
+	${exportStmt}
+	`;
+	let failure = await writeFile(filename, writeToFile, __global.SCHEMA_DIR);
+	if (failure) {
+		__global.FAILURES.push(failure);
+	}
+};
+
+const _getNewResourceFile = async (resources) => {
+	if (resources.length === 0) {
+		return 1;
+	}
+	let resourceList = new Array(),
+		importAll = new Array(),
+		filename = 'getNewResource';
+	for (let name of resources.map((elem) => JSON.parse(elem).name)) {
+		if (name) {
+			importAll.push(name);
+			resourceList.push(name);
+		}
+	}
+
+	let dictMapping = (elem) => `${elem}: ${elem}Resource`;
+	let importMapping = (elem) => `import ${elem}Resource from './${elem}Resource'`;
+	let func = `export const getNewResource = (resourceType, rawData) => {
+		return new dict[resourceType](rawData);
+	};`;
+	let writeToFile = `
+/* ${__global.AUTO_GENERATED} - ${__global.DO_NOT_EDIT} */
+${importAll.map(importMapping).join(';')}
+const dict = {${resourceList.map(dictMapping).join(',')}}
+
+${func}
+	`;
+	let failure = await writeFile(filename, writeToFile, __global.RESOURCES_DIR);
+	if (failure) {
+		__global.FAILURES.push(failure);
+	}
+};
 module.exports = {
 	/**
 	 * Builds an index.js file used to export all of the created FHIR resource classes
@@ -35,38 +75,22 @@ module.exports = {
 		if (resources.length === 0) {
 			return 1;
 		}
-		let resourceList = '',
-			importAll = `
-	${AUTO_GENERATED}
-	`,
-			filename = 'index';
-		for (let json of resources.map((elem) =>
-			JSON.stringify(JSON.parse(elem).schema)
-		)) {
-			let fhirResource = JSON.parse(json)['resourceType'];
-			let importStatement = `import ${fhirResource}Resource from './${fhirResource}Resource';`;
-			if (json) {
-				importAll = importAll + importStatement;
-				resourceList = resourceList + `${fhirResource},`;
-			}
-		}
+		let filename = 'index';
 
-		let mapping = (elem) => `${elem}Resource`;
+		_getNewResourceFile(resources);
 
-		try {
-			let exportStatement = `export { ${resourceList
-				.split(',')
-				.map(mapping)} };`;
-			let writeToFile = `${importAll}${exportStatement}`;
-			let file = path.resolve(RESOURCES_DIR, `index.js`);
-			log.info(`File: ${file}`);
-			await fs.writeFile(file, writeToFile, { flag: 'w' }, callback);
-			log.success(`Successfully wrote file ${filename}.js`);
-		} catch (error) {
-			log.error(
-				`Failed to write file ${filename}.js - Error: ${error.message}`
-			);
-			FAILURES.push(filename);
+		let exportStatement = `export { getNewResource, getColumnMapping, buildColumnList, getFhirSchema };`;
+		let writeToFile = `
+/* ${__global.AUTO_GENERATED} - ${__global.DO_NOT_EDIT} */
+import {getNewResource} from './getNewResource';
+import {getFhirSchema} from './getFhirSchema';
+import {getColumnMapping, buildColumnList} from './columnMapping'
+
+${exportStatement}
+		`;
+		let failure = await writeFile(filename, writeToFile, __global.RESOURCES_DIR);
+		if (failure) {
+			__global.FAILURES.push(failure);
 		}
 		return 0;
 	},
@@ -77,23 +101,33 @@ module.exports = {
 	 */
 	buildResourceFile: async (resource) => {
 		let json = JSON.parse(resource),
-			example = await getExample(json.name),
 			schema = json.schema,
 			resourceName = json.name,
-			extend = DO_NOT_EXTEND_DOMAINRESOURCE.includes(resourceName)
-				? 'Resource'
-				: 'DomainResource',
+			extend = DO_NOT_EXTEND_DOMAINRESOURCE.includes(resourceName) ? 'Resource' : 'DomainResource',
 			reference = json.reference,
 			description = json.description,
 			filename = `${resourceName}Resource` || '__failed';
-		let fields = generateFields(schema);
-		generateUnitTestFile(example, fields);
-		let schemaName = camelCase(`${resourceName}Schema`);
+		if (typeof schema === 'string') {
+			schema = JSON.parse(schema);
+		}
+		let fields = _generateFields(schema);
 		try {
-			let toWrite = `
-${AUTO_GENERATED}
+			let example = await getExample(json.name);
+			await generateUnitTestFile(example, fields);
+		} catch (error) {
+			log.warning(
+				`Unable to generate unit test file for ${resourceName}, most likely example could not be retrieved`
+			);
+		}
+
+		generateColumnMappingFile(resource, fields);
+		let schemaName = camelCase(`${resourceName}Schema`);
+
+		let writeToFile = `
+/* ${__global.AUTO_GENERATED} - ${CAN_EDIT ? __global.ALLOW_EDIT : __global.DO_NOT_EDIT} */
 
 import { Fhir${extend} } from '../base';
+import ${schemaName} from './schemata/${schemaName}';
 /${ASTERISK}
 Resource: ${resourceName}
 Reference: ${reference}
@@ -110,64 +144,39 @@ constructor(resourceString) {
 }
 
 }
-const ${schemaName} = ${JSON.stringify(schema, null, 4)};
 	`;
-			let file = path.resolve(RESOURCES_DIR, `${filename}.js`);
-			log.info(`File: ${file}`);
-			await fs.writeFile(file, toWrite, { flag: 'w' }, callback);
-			log.success(`Successfully wrote file ${filename}.js`);
-		} catch (error) {
-			log.error(
-				`Failed to write file ${filename}.js - Error: ${error.message}`
-			);
-			FAILURES.push(filename);
+		_schemaFile(schemaName, schema);
+		let failure = await writeFile(filename, writeToFile, __global.RESOURCES_DIR);
+		if (failure) {
+			__global.FAILURES.push(failure);
 		}
 	},
 
 	/**
 	 * Writes a file containing the schemas for all of the different FHIR resource types.
-	 * @param {Array} schemaArray An array of JSON objects representing FHIR resource schema
+	 * @param {Array} resources An array of JSON objects representing FHIR resource schema
 	 */
-	buildSchemaFile: async (schemaArray) => {
-		let filename = 'FhirSchemas';
-		try {
-			let schemaStrings = schemaArray
-				.map(
-					(elem) =>
-						`${elem.resourceType}: \`${JSON.stringify(
-							elem,
-							null,
-							4
-						)}\``
-				)
-				.join(',');
+	buildGetSchemaFile: async (resources) => {
+		let filename = 'getFhirSchema';
+		generateGetSchemaUnitTestFile(resources);
 
-			let toWrite = `
-${AUTO_GENERATED}
+		let writeToFile = `
+/* ${__global.AUTO_GENERATED} - ${CAN_EDIT ? __global.ALLOW_EDIT : __global.DO_NOT_EDIT} */
+export const ${filename} = (resourceName) => import(\`'./schemata/\${resourceName.charAt(0).toLowerCase() + resourceName.slice(1)}Schema.js\`)
 
-const fhirSchemas = 
-{
-	${schemaStrings}
-}
-
-export default fhirSchemas;
 	`;
-			let file = path.resolve(RESOURCES_DIR, `${filename}.js`);
-			log.info(`File: ${file}`);
-			await fs.writeFile(file, toWrite, { flag: 'w' }, callback);
-			log.success(`Successfully wrote file ${filename}.js`);
-		} catch (error) {
-			log.error(
-				`Failed to write file ${filename}.js - Error: ${error.message}`
-			);
-			FAILURES.push(filename);
+		let failure = await writeFile(filename, writeToFile, __global.RESOURCES_DIR);
+		if (failure) {
+			__global.FAILURES.push(failure);
 		}
 	},
 
-	generateFields: generateFields,
+	generateGetNewResourceFile: _getNewResourceFile,
+	generateFields: _generateFields,
+	generateSchemaFile: _schemaFile,
 };
 
-const generateFieldsInner = (schema, fields, rootName) => {
+const _generateFieldsInner = (schema, fields, rootName) => {
 	let keys = Object.keys(schema);
 	for (let key of keys) {
 		if (key === 'resourceType') {
@@ -181,23 +190,11 @@ const generateFieldsInner = (schema, fields, rootName) => {
 			} else {
 				initializer = '[{}]';
 			}
-			field = `${buildParamNameString(
-				rootName,
-				rootName === '' ? '' : '_',
-				key
-			)} = ${initializer}`;
+			field = `${buildParamNameString(rootName, rootName === '' ? '' : '_', key)} = ${initializer}`;
 		} else if (typeof schema[key] === 'string') {
-			field = `${buildParamNameString(
-				rootName,
-				rootName === '' ? '' : '_',
-				key
-			)}`;
+			field = `${buildParamNameString(rootName, rootName === '' ? '' : '_', key)}`;
 		} else {
-			generateFieldsInner(
-				schema[key],
-				fields,
-				buildParamNameString(rootName, rootName === '' ? '' : '_', key)
-			);
+			_generateFieldsInner(schema[key], fields, buildParamNameString(rootName, rootName === '' ? '' : '_', key));
 		}
 		if (field !== '' && field.toUpperCase() !== 'RESOURCETYPE') {
 			fields.push(field);

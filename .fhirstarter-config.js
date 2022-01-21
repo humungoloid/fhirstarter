@@ -1,0 +1,57 @@
+const path = require('path');
+
+module.exports = {
+	doNotEditComment: `DO NOT EDIT`,
+	canBeEditedComment: `but please feel free to edit this file`,
+	headerComment: 'Generated automagically by FhirStarter',
+	mappingFunctionIsDefault: true,
+	templates: {
+		validateArgs: '_argValidatorFunction',
+		FhirDomainResource: '_fhirDomainResourceClass',
+		FhirResource: '_fhirResourceClass',
+		buildColumnList: '_buildColumnListFunction',
+		primitiveTypes: '_primitiveTypesTemplate',
+		getNewResourceUnitTest: '_getNewResourceUnitTest',
+		fhirExtensionUrls: '_fhirExtensionUrls',
+		customImagingStudyWorklistColumns: '_customImagingStudyWorklistColumns',
+		equalityCheckFunction: '_equalityCheckFunction',
+		equalityCheckUnitTest: '_equalityCheckFunctionUnitTest',
+		customResourcesFile: '_customResources',
+	},
+	templatesDir: path.resolve(__dirname, '.fhirstarter', 'templates'),
+	output: {
+		root: './outputTest',
+		// root: 'D:\\omega-ui\\app\\core\\src\\fhir',
+		dir: {
+			fhirBase: 'base',
+			resource: 'resource',
+			utils: 'utils',
+			datatypes: 'datatypes',
+			extension: 'extension',
+			columnMapping: 'resource/columnMapping',
+			schema: 'resource/schemata',
+		},
+		prettify: true,
+		maxLineLength: 120,
+		cleanupDirectories: true,
+	},
+	http: {
+		timeoutMs: 60000,
+		baseUrl: 'https://www.hl7.org/fhir',
+		resourceList: 'resourcelist.html',
+		dataTypes: 'datatypes.html',
+		metadataTypes: 'metadatatypes.html',
+		dosage: 'dosage.html',
+		meta: 'resource.html#meta',
+		reference: 'references.html',
+		extension: 'extensibility.html',
+		narrative: 'narrative.html',
+	},
+	logging: {
+		level: 'verbose',
+	},
+	processing: {
+		extendOnlyBaseResource: ['Bundle', 'Parameters', 'Binary'],
+		useImagingStudyWorklistResource: true,
+	},
+};

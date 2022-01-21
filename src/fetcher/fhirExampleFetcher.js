@@ -3,22 +3,27 @@ const HTMLParser = require('node-html-parser');
 const SchemaGenerator = require('../processors/fhirResourceProcessor');
 const log = require('../utils/logging');
 const imagingStudyWorklistExample = require('./../data/imagingStudyWorklistExample');
-const config = require('config');
 
 const getExampleInner = async (resource) => {
 	let result;
 	if (resource === 'ImagingStudyWorklist') {
-		result = JSON.stringify(
-			JSON.parse(imagingStudyWorklistExample.replace(/\s/g, ''))
-		);
+		result = JSON.stringify(imagingStudyWorklistExample);
 	} else {
-		let page = await HTTP.get(`${resource}-examples.html`);
-		let examples = HTMLParser.parse(page.data)
-			.querySelector('.list')
-			.querySelectorAll('tr')[1]
-			.querySelectorAll('td')[3]
-			.querySelector('a').attributes.href;
-		let response = await HTTP.get(examples);
+		let url, page, response;
+		if (specificExamples[resource]) {
+			url = specificExamples[resource];
+			response = await __global.HTTP.get(url);
+		} else {
+			url = `${resource}-examples.html`;
+			page = await __global.HTTP.get(url);
+			let examples = HTMLParser.parse(page.data)
+				.querySelector('.list')
+				.querySelectorAll('tr')[1]
+				.querySelectorAll('td')[3]
+				.querySelector('a').attributes.href;
+			response = await __global.HTTP.get(examples);
+		}
+
 		let data = HTMLParser.parse(response.data);
 		let parsed = data
 			.querySelector('.example')
@@ -33,6 +38,8 @@ const getExampleInner = async (resource) => {
 		schema: result,
 	};
 };
+
+const specificExamples = { Medication: 'medicationexample0306.json.html' };
 
 module.exports = {
 	getExamples: async (resources) => {

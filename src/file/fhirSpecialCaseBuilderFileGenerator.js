@@ -1,11 +1,8 @@
-const fs = require('fs').promises;
-const config = require('config');
-const path = require('path');
 const log = require('../utils/logging');
-const breakString = require('../utils/generatorUtils').breakString;
+const writeFile = require('../utils/fileWriter');
 
-const MAX_LINE_LENGTH = config.output.maxLineLength;
-
+const MAX_LINE_LENGTH = __global.__config.output.maxLineLength;
+const CAN_EDIT = false;
 const ASTERISK = '*'.repeat(MAX_LINE_LENGTH);
 
 const camelCase = require('../utils/generatorUtils').camelCase;
@@ -28,7 +25,7 @@ module.exports = async (resources) => {
 			filename = `fhir${name}Resource`,
 			params = [];
 
-		globalJson = resource;
+		globalJson = JSON.parse(resource);
 		let newParams = processObjectForDataTypeBuilders(resource);
 		params.push(...newParams);
 		let functionName = `build${name}Func`;
@@ -37,51 +34,56 @@ module.exports = async (resources) => {
 			addIn = '',
 			paramsOne = '';
 
-		imports.push(`import * as datatypes from '../datatypes'`);
-		imports.push(`import * as validateArgs from './validateArgs'`);
+		const commonAddin = `
+			const {${params.join(', ')}} = args;
+			const schema = datatypes.getSchema('${name}');
+			let valid = validateArgs.validateArgs(schema, args, Object.keys(args));
+${addIn}
+return ${JSON.stringify({ ...globalJson, __valid: 'valid' }).replace(/"/g, '')}
+`;
+
+		imports.push(`import { getSchema } from '../datatypes'`);
+		imports.push(`import { validateArgs } from './validateArgs'`);
 		switch (name) {
 			case 'Reference':
+
 			case 'Dosage':
+
 			case 'Narrative':
+
 			case 'Meta':
-				addIn = `
-				const {${params.join(', ')}} = args;
-				const schema = datatypes.getSchema('${name}');
-validateArgs.validateArgs(schema, args, Object.keys(args));
-	${addIn}
-	return ${JSON.stringify(globalJson).replace(/"/g, '')}
-`;
+				addIn = commonAddin;
 				break;
 			case 'Extension':
-				imports.push(`import * as utils from '../utils'`);
+				imports.push(`import {buildDataType} from '../utils'`);
 				addIn = `
 const {url, ${params.filter((elem) => elem !== 'url').join(', ')}} = args;
 // we can only include one, so just include the first one
 let argsKey = Object.keys(args)[1],
-		validated = validateArgs.validatePrimitive('url', url),
-		schema = argsKey.slice('value'.length),
-		isPrimitiveValue = datatypes.isPrimitive(
-			schema.charAt(0).toLowerCase() + schema.slice(1)
-		),
-		value;
+	valid = validateArgs.validatePrimitive('url', url),
+	schema = argsKey.slice('value'.length),
+	isPrimitiveValue = datatypes.isPrimitive(
+		schema.charAt(0).toLowerCase() + schema.slice(1)
+	),
+	value;
 
-	if (isPrimitiveValue) {
-		validateArgs.validatePrimitive(
-			schema.charAt(0).toLowerCase() + schema.slice(1),
-			args[argsKey]
-		);
-		value = \`"\${args[argsKey]}"\`;
-	} else {
-		validateArgs.validateArgs(
-			datatypes.getSchema(schema),
-			args[argsKey],
-			Object.keys(args[argsKey])
-		);
-		value = utils.default.buildDataType(schema, args[argsKey]);
-	}
-	return JSON.parse(
-		\`{"url":"\${url}", "\${argsKey}": \${JSON.stringify(value)}}\`
+if (isPrimitiveValue) {
+	valid = valid && validateArgs.validatePrimitive(
+		schema.charAt(0).toLowerCase() + schema.slice(1),
+		args[argsKey]
 	);
+	value = \`"\${args[argsKey]}"\`;
+} else {
+	valid = valid && validateArgs.validateArgs(
+		datatypes.getSchema(schema),
+		args[argsKey],
+		Object.keys(args[argsKey])
+	);
+	value = buildDataType(schema, args[argsKey]);
+}
+return JSON.parse(
+	\`{"url":"\${url}", "\${argsKey}": \${JSON.stringify(value)}, "__valid": \${valid}}\`
+);
 `;
 				break;
 		}
@@ -91,44 +93,27 @@ let argsKey = Object.keys(args)[1],
 				${addIn};
 			};`;
 
-		if (newFunc.includes('__')) {
+		if (newFunc.replace(/__valid/g, 'valid').includes('__')) {
 			needToCheck.push(functionName);
 		}
 		let checkString =
-			needToCheck.length > 0
-				? ` Need to check the following functions: ${needToCheck.join(
-						', '
-				  )}`
-				: '';
+			needToCheck.length > 0 ? ` Need to check the following functions: ${needToCheck.join(', ')}` : '';
 		log.info(`Finished building functions.`);
 		log.warning(`${checkString}`);
 		returnFiles.push({ name: name, filename: filename });
 		let writeToFile = `
-${AUTO_GENERATED}
+/* ${__global.AUTO_GENERATED} - ${CAN_EDIT ? __global.ALLOW_EDIT : __global.DO_NOT_EDIT} */
 ${imports.join(';')}
 ${newFunc}
 
 export default ${functionName}`;
-		try {
-			let file = path.resolve(UTILS_DIR, `${filename}.js`);
-			log.info(`Writing file ${filename}.js`);
-			await fs.writeFile(file, writeToFile, { flag: 'w' }, callback);
-			log.success(`Successfully wrote file ${filename}.js`);
-		} catch (error) {
-			log.error(
-				`Failed to write file ${filename}.js - Error: ${error.message}`
-			);
-			FAILURES.push(filename);
+		let failure = await writeFile(filename, writeToFile, __global.UTILS_DIR);
+		if (failure) {
+			__global.FAILURES.push(failure);
 		}
 	}
 	/* End of for loop */
 	return returnFiles;
-};
-
-const callback = (error) => {
-	if (error) {
-		throw error;
-	}
 };
 
 const buildUtilsIndex = async (functionNames, importFrom) => {
@@ -142,21 +127,14 @@ export {${functionNames.join(', ')}};
 `,
 		filename = 'index',
 		writeToFile = `
-${AUTO_GENERATED}
+/* ${__global.AUTO_GENERATED} - ${CAN_EDIT ? __global.ALLOW_EDIT : __global.DO_NOT_EDIT} */
 ${importStr}
 
 ${exportStr}
 `;
-	try {
-		let file = path.resolve(UTILS_DIR, `index.js`);
-		log.info(`Writing file ${filename}.js`);
-		await fs.writeFile(file, writeToFile, { flag: 'w' }, callback);
-		log.success(`Successfully wrote file ${filename}.js`);
-	} catch (error) {
-		log.error(
-			`Failed to write file ${filename}.js - Error: ${error.message}`
-		);
-		FAILURES.push(filename);
+	let failure = await writeFile(filename, writeToFile, __global.UTILS_DIR);
+	if (failure) {
+		__global.FAILURES.push(failure);
 	}
 };
 /**
@@ -169,10 +147,7 @@ const processObjectForDataTypeBuilders = (obj, rootName = null) => {
 	if (typeof obj === 'string') {
 		json = JSON.parse(obj);
 	} else if (obj.schema) {
-		json =
-			typeof obj.schema === 'string'
-				? JSON.parse(obj.schema)
-				: obj.schema;
+		json = typeof obj.schema === 'string' ? JSON.parse(obj.schema) : obj.schema;
 	} else {
 		json = obj instanceof Object ? JSON.parse(JSON.stringify(obj)) : {};
 	}
@@ -187,9 +162,7 @@ const processObjectForDataTypeBuilders = (obj, rootName = null) => {
 				// we just create a parameter with the same name and specify
 				// the structure the object should have in a comment
 
-				let headerStars = '*'.repeat(
-						Math.floor((MAX_LINE_LENGTH - key.length - 2) / 2)
-					),
+				let headerStars = '*'.repeat(Math.floor((MAX_LINE_LENGTH - key.length - 2) / 2)),
 					footerStars = '*'.repeat(MAX_LINE_LENGTH - 1),
 					commentHeader = `/${headerStars} ${key} ${headerStars}`,
 					commentFooter = `${footerStars}/`;
@@ -214,10 +187,7 @@ ${commentFooter}
 			params.push(paramName);
 		} else if (typeof valueType !== 'string') {
 			let newRootName = rootName || key;
-			let newParams = processObjectForDataTypeBuilders(
-				{ name: '', schema: valueType },
-				newRootName
-			);
+			let newParams = processObjectForDataTypeBuilders({ name: '', schema: valueType }, newRootName);
 			params.push(...newParams);
 		} else {
 			let newKey = key.replace(/"/g, '');

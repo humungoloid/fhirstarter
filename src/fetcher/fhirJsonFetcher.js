@@ -1,23 +1,23 @@
 const HTMLParser = require('node-html-parser');
 const SchemaGenerator = require('../processors/fhirResourceProcessor');
 const log = require('../utils/logging');
-const config = require('config');
 const getSpecialCases = require('./fhirSpecialCaseFetcher').getSpecialCases;
+const getCustomResources = require('./customJsonFetcher');
 
-const FHIR_BASE_URL = config.http.baseUrl;
-
-const DATATYPES_PAGE = config.http.dataTypes;
-const METADATATYPES_PAGE = config.http.metadataTypes;
+const FHIR_BASE_URL = __global.__config.http.baseUrl;
+const DATATYPES_PAGE = __global.__config.http.dataTypes;
+const METADATATYPES_PAGE = __global.__config.http.metadataTypes;
 
 var dataTypePage;
 var metadataTypePage;
 
 module.exports = {
-	fetchAll: async (resources, dataTypes, metaDataTypes, specialCases) => {
+	fetchAll: async (resources, dataTypes, metaDataTypes, specialCases, customResources) => {
 		resources = resources || resources.allResources;
 		dataTypes = dataTypes || resources.allDataTypes;
 		metaDataTypes = metaDataTypes || resources.allMetadataTypes;
 		specialCases = specialCases || resources.allSpecialCases;
+		customResources = customResources || resources.customResources;
 		let dataTypeSchemas = [],
 			resourceSchemas = [],
 			specialCaseSchemas = [],
@@ -32,23 +32,20 @@ module.exports = {
 			}
 		}
 
-		resourceSchemas.push(
-			JSON.stringify({
-				name: 'ImagingStudyWorklist',
-				description:
-					'RamSoft proprietary resource used to enhance worklist performance',
-				reference: 'N/A',
-				schema: IMAGING_STUDY_WORKLIST_SCHEMA,
-			})
-		);
+		// for (let resource of __global.CUSTOM_RESOURCES) {
+		// 	resourceSchemas.push(JSON.stringify(resource));
+		// }
+
+		let customResourceSchemas = await getCustomResources(customResources);
+		for (let customResource of customResourceSchemas) {
+			resourceSchemas.push(JSON.stringify(customResource));
+		}
 
 		try {
 			result = await getSpecialCases(specialCases);
 			specialCaseSchemas = result;
 		} catch (error) {
-			log.error(
-				`Failed to fetch special cases - Error: ${error.message}`
-			);
+			log.error(`Failed to fetch special cases - Error: ${error.message}`);
 		}
 
 		for (let dataType of dataTypes) {
@@ -56,9 +53,7 @@ module.exports = {
 				result = await getDataType(dataType);
 				dataTypeSchemas.push({ name: dataType, schema: result });
 			} catch (error) {
-				log.error(
-					`Failed to fetch ${dataType} - Error: ${error.message}`
-				);
+				log.error(`Failed to fetch ${dataType} - Error: ${error.message}`);
 			}
 		}
 
@@ -67,9 +62,7 @@ module.exports = {
 				result = await getMetaDataType(metaDataType);
 				dataTypeSchemas.push({ name: metaDataType, schema: result });
 			} catch (error) {
-				log.error(
-					`Failed to fetch ${metaDataType} - Error: ${error.message}`
-				);
+				log.error(`Failed to fetch ${metaDataType} - Error: ${error.message}`);
 			}
 		}
 
@@ -82,11 +75,10 @@ module.exports = {
 };
 
 const getFhirPage = async (resourceName) => {
-	let response = await HTTP.get(`/${resourceName}.html`);
+	let response = await __global.HTTP.get(`/${resourceName}.html`);
 	let data = HTMLParser.parse(response.data);
 	let child = HTMLParser.parse(
-		data.querySelector('#tabs-json').querySelector('#json-inner')
-			.childNodes[1].childNodes[0].innerText
+		data.querySelector('#tabs-json').querySelector('#json-inner').childNodes[1].childNodes[0].innerText
 	);
 	let rawJson = '',
 		description,
@@ -118,10 +110,8 @@ const getFhirPage = async (resourceName) => {
 		result = SchemaGenerator.processResourceJson(rawJson, resourceName);
 		log.success(`Successfully processed ${resourceName}`);
 	} catch (error) {
-		log.error(
-			`Unable to process ${resourceName} - Error: ${error.message}`
-		);
-		FAILURES.push(resourceName);
+		log.error(`Unable to process ${resourceName} - Error: ${error.message}`);
+		__global.FAILURES.push(resourceName);
 	}
 	return JSON.stringify({
 		name: resourceName,
@@ -131,16 +121,19 @@ const getFhirPage = async (resourceName) => {
 	});
 };
 
-const processPageData = (dataType, page) => {
+const processPageData = (dataType, page, validator) => {
 	try {
 		let childOne = page.querySelector(`#tabs-${dataType}-json`),
 			child = HTMLParser.parse(
-				childOne.querySelector(`#json`).querySelector(`#json-inner`)
-					.childNodes[1].childNodes[0].innerText
+				childOne.querySelector(`#json`).querySelector(`#json-inner`).childNodes[1].childNodes[0].innerText
 			),
 			rawJson = '';
 		child.childNodes.map((elem) => (rawJson = rawJson + elem.innerText));
-		let result = SchemaGenerator.processResourceJson(rawJson);
+		let result = {
+			id: '__id__',
+			extension: ['__Extension__'],
+			...SchemaGenerator.processResourceJson(rawJson),
+		};
 
 		log.success(`Successfully processed ${dataType}`);
 		return JSON.stringify(result);
@@ -152,7 +145,7 @@ const processPageData = (dataType, page) => {
 const getDataType = async (dataType) => {
 	try {
 		if (!dataTypePage) {
-			let response = await HTTP.get(DATATYPES_PAGE);
+			let response = await __global.HTTP.get(DATATYPES_PAGE);
 			dataTypePage = HTMLParser.parse(response.data);
 		}
 		return processPageData(dataType, dataTypePage);
@@ -164,7 +157,7 @@ const getDataType = async (dataType) => {
 const getMetaDataType = async (dataType) => {
 	try {
 		if (!metadataTypePage) {
-			let response = await HTTP.get(METADATATYPES_PAGE);
+			let response = await __global.HTTP.get(METADATATYPES_PAGE);
 			metadataTypePage = HTMLParser.parse(response.data);
 		}
 		return processPageData(dataType, metadataTypePage);
