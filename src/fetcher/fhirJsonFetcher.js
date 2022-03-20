@@ -130,7 +130,7 @@ const processPageData = (dataType, page, validator) => {
 			rawJson = '';
 		child.childNodes.map((elem) => (rawJson = rawJson + elem.innerText));
 		let result = {
-			id: '__id__',
+			// from Element
 			extension: ['__Extension__'],
 			...SchemaGenerator.processResourceJson(rawJson),
 		};

@@ -39,24 +39,39 @@ const _getNewResourceFile = async (resources) => {
 		return 1;
 	}
 	let resourceList = new Array(),
-		importAll = new Array(),
 		filename = 'getNewResource';
 	for (let name of resources.map((elem) => JSON.parse(elem).name)) {
 		if (name) {
-			importAll.push(name);
 			resourceList.push(name);
 		}
 	}
 
-	let dictMapping = (elem) => `${elem}: ${elem}Resource`;
-	let importMapping = (elem) => `import ${elem}Resource from './${elem}Resource'`;
-	let func = `export const getNewResource = (resourceType, rawData) => {
-		return new dict[resourceType](rawData);
-	};`;
+	let func = `
+const dict = _.fromPairs(
+	_.map(resources, (elem) => [_.toUpper(elem), \`\${elem}Resource\`])
+);
+/**
+* Creates a new FHIR resource object of the type specified, using the data provided
+* @param {string} resourceType The type of resource to create
+* @param {Object} rawData A JSON object containing the raw data to be processed
+* @returns The new FHIR resource object with fields containing the provided data
+*/
+export const getNewResource = async (resourceType, rawData) => {
+	try {
+		let Resource = await import(\`./\${dict[_.toUpper(resourceType)]}.js\`);
+
+		if (!!Resource) {
+			return new Resource.default(rawData);
+		}
+	} catch (error) {
+		console.error(\`Could not create \${resourceType}: \${error}\`);
+	}
+};`;
+
 	let writeToFile = `
 /* ${__global.AUTO_GENERATED} - ${__global.DO_NOT_EDIT} */
-${importAll.map(importMapping).join(';')}
-const dict = {${resourceList.map(dictMapping).join(',')}}
+import _ from 'lodash';
+const dict = [${resourceList.join(',')}]
 
 ${func}
 	`;

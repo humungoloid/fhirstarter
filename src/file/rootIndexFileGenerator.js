@@ -1,30 +1,13 @@
 const writeFile = require('../utils/fileWriter');
-
+const path = require('path');
 const __rootIndex = async () => {
 	let filename = 'index';
+	let func =
+		require(path.resolve(__global.__config.templatesDir, __global.__config.templates.FhirDomainResource)) ||
+		__global.FHIR_DOMAIN_RESOURCE_CLASS_DEF.replace(/\\/g, '\\');
 	let idx = `
 	/* ${__global.AUTO_GENERATED} - ${__global.DO_NOT_EDIT} */
-	import { FhirDomainResource, FhirResource } from './base';
-	import { buildDataType, getBuilderFunction, fancyEqualityCheck } from './utils';
-	import { getSchema, primitiveTypes, isPrimitive, getPrimitive } from './datatypes';
-	import { buildColumnList, getNewResource, getColumnMapping, getFhirSchema } from './resource';
-	import { fhirExtensionUrls } from './extension'
-	export {
-		FhirDomainResource,
-		FhirResource,
-		buildDataType,
-		getBuilderFunction,
-		getSchema,
-		primitiveTypes,
-		isPrimitive,
-		buildColumnList,
-		getNewResource,
-		getColumnMapping,
-		fhirExtensionUrls,
-		fancyEqualityCheck,
-		getFhirSchema,
-		getPrimitive,
-	};
+	${func}
 	`;
 	let failure = await writeFile(filename, idx, __global.ROOT_DIR);
 	if (failure) {

@@ -101,7 +101,7 @@ ${__global.DEFAULT_COLUMN_LIST_BUILDER_FUNCTION.exports}
 module.exports = {
 	/**
 	 * Generates a file containing column mappings to be used in displaying data
-	 * @param {string} resource The FHIR resource whose fields should be mapepd
+	 * @param {string} resource The FHIR resource whose fields should be mapped
 	 * @param {string[]} fields The fields that will be mapped to columns
 	 */
 	generateColumnMappingFile: async (resource, fields) => {
@@ -109,11 +109,19 @@ module.exports = {
 		fields = fields.map((elem) => elem.split('=')[0].trim());
 		let filename = `${JSON.parse(resource).name}Mapping`,
 			columnMapping = {};
+		columnMapping['id'] = JSON.parse(`{
+				"label": "Id",
+				"options": { "filter": "false", "sort": "false", "display": "none"},
+				"searchParameter": "id",
+				"valueSet": {},
+				"filterType": "none",
+				"getDisplay": "(resource)=>{ return resource.id }"
+			}`);
 		for (let field of fields) {
 			let newField = JSON.parse(`{
 				"label": "${generateLabel(field)}",
-				"options": { "filter": "false", "sort": "false" },
-				"queryParameter": "${field}",
+				"options": { "filter": "false", "sort": "false"},
+				"searchParameter": "${field}",
 				"valueSet": {},
 				"filterType": "none",
 				"getDisplay": "(resource)=>{ return resource.${field} }"

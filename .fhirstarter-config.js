@@ -1,6 +1,8 @@
 const path = require('path');
 
 module.exports = {
+	// only R4 is currently supported
+	revision: 'R4',
 	doNotEditComment: `DO NOT EDIT`,
 	canBeEditedComment: `but please feel free to edit this file`,
 	headerComment: 'Generated automagically by FhirStarter',
@@ -17,6 +19,7 @@ module.exports = {
 		equalityCheckFunction: '_equalityCheckFunction',
 		equalityCheckUnitTest: '_equalityCheckFunctionUnitTest',
 		customResourcesFile: '_customResources',
+		rootIndex: '_rootIndexTemplate',
 	},
 	templatesDir: path.resolve(__dirname, '.fhirstarter', 'templates'),
 	output: {

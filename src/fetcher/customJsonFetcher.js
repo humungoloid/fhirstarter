@@ -5,6 +5,7 @@
 const fs = require('fs').promises;
 const log = require('../utils/logging');
 const parse = require('parse-js');
+const _ = require('lodash');
 
 let currentFile;
 
@@ -58,7 +59,9 @@ const __stripExtJsClass = (fileContents) => {
 		// there are expressions that replace urn:oid: with '', the trailing : causes problems
 		.replace(/"([ou]?id)":/g, '$1:')
 		// sometimes there are random commas
-		.replace(/,(\s*})/g, '$1');
+		.replace(/,(\s*})/g, '$1')
+		// get rid of matchers, I guess
+		.replace(/,\s*"matcher": [^}]*/gi, '');
 
 	let final;
 
@@ -117,7 +120,12 @@ const __extractFields = async (fileContents) => {
 			// these fields will all be in the extension or identifier arrays
 			(objToProcess[key]['type'] && objToProcess[key]['type'] === 'fhirextension') ||
 			// if we map to a subfield of an existing field, we don't need to include it
-			(!!objToProcess[key]['mapping'] && keys.includes(objToProcess[key]['mapping'].split('.')[0])) ||
+			(!!objToProcess[key]['mapping'] &&
+				// if the length of the mapping value is greater than 1, we have a subfield
+				(objToProcess[key]['mapping'].split('.').length > 1 ||
+					// if the length of the mapping is 1 but the mapping value is the same as the key, we need to include it
+					objToProcess[key]['mapping'].split('.')[0] !== key) &&
+				keys.includes(objToProcess[key]['mapping'].split('.')[0])) ||
 			// if Worklist 1.0 didn't persist a field, why should we?
 			(!!objToProcess[key]['persist'] && objToProcess[key]['persist'] === false) ||
 			// if the field is auto type and references some other extension or identifier field, we don't need it
@@ -222,6 +230,9 @@ const __extractFields = async (fileContents) => {
 			// anything else
 			addToFields({ name: key, type: __processTypeField(objToProcess[key]['type']) });
 		}
+		if (!!objToProcess[key]['mapping']) {
+			__checkMappingField(objToProcess, key, addToFields);
+		}
 	}
 	return [
 		fields.sort(function (a, b) {
@@ -229,6 +240,16 @@ const __extractFields = async (fileContents) => {
 		}),
 		objToProcess['resourceType'].defaultValue,
 	];
+};
+
+const __checkMappingField = (obj, key, callback) => {
+	let mapping = obj[key]['mapping'];
+	let mappingRegex =
+		/return\s*data\.(?<fieldName>[a-zA-Z0-9]*)\s*\?\s*data\.[a-zA-Z0-9]*\[?0?\]?\(?.*\)?\s*:(?![\)])\s*/g;
+	let result = _.invoke(mappingRegex, 'exec', mapping);
+	if (!!result) {
+		callback({ name: result.groups.fieldName, type: __processTypeField(obj[key]['type']) });
+	}
 };
 
 const __processTypeField = (value) => {

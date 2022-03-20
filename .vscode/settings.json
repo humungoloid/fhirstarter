@@ -8,5 +8,6 @@
 	"prettier.singleQuote": true,
 	"editor.formatOnSave": true,
 	"prettier.proseWrap": "always",
-	"prettier.printWidth": 120
+	"prettier.printWidth": 120,
+	"cSpell.words": ["Codeable", "FHIR", "ifies", "IMAGINGSTUDYWORKLIST", "Worklist"]
 }
