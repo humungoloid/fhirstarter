@@ -1,5 +1,5 @@
 // TODO: Finish this...it should be able to take a generated fhir resource as input and determine
-// whether the fhir is validated; sort of like an integration test kinda
+// whether the fhir is valid; sort of like an integration test kinda
 
 const $ = require('shelljs');
 const path = require('path');
